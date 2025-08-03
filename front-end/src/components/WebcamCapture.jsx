@@ -38,13 +38,13 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
       <div className="flex flex-wrap justify-center gap-4">
         <button
           onClick={handleCapture}
-          className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow hover:bg-blue-700 transition transform hover:scale-105"
+          className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow cursor-pointer hover:bg-blue-700 transition transform hover:scale-105"
         >
           📸 Capture Photo
         </button>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 border border-red-300 text-red-600 px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow-sm hover:bg-red-50 transition transform hover:scale-105"
+          className="flex items-center gap-2 border border-red-300 text-red-600 px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow-sm cursor-pointer hover:bg-red-50 transition transform hover:scale-105"
         >
           🔙 Back
         </button>
