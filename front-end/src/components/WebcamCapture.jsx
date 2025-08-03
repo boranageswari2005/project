@@ -1,60 +1,148 @@
-import React, { useState, useEffect } from "react";
-import Webcam from "react-webcam";
+import React, { useState, useEffect, useRef } from "react";
+
+// No react-webcam import needed - using native browser APIs
 
 const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
-  const [facingMode, setFacingMode] = useState("environment"); // Start with rear camera
+  const [facingMode, setFacingMode] = useState("environment");
   const [cameraError, setCameraError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stream, setStream] = useState(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
-    // Always default to rear camera on mobile
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
       setFacingMode("environment");
     }
-  }, []);
 
-  // Simplified video constraints - more compatible with mobile
+    // Initialize camera when component mounts
+    initializeCamera();
+
+    // Cleanup on unmount
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [facingMode]);
+
   const videoConstraints = {
     facingMode: facingMode,
-    width: { min: 640, ideal: 1280, max: 1920 },
-    height: { min: 480, ideal: 720, max: 1080 },
+    width: { ideal: 640 },
+    height: { ideal: 480 },
   };
 
-  const handleUserMedia = () => {
-    setIsLoading(false);
-    setCameraError(null);
-  };
+  const initializeCamera = async () => {
+    try {
+      setIsLoading(true);
+      setCameraError(null);
+      console.log("Initializing camera...");
 
-  const handleUserMediaError = (error) => {
-    setIsLoading(false);
-    console.error("Camera error:", error);
-    setCameraError(error.message || "Camera access denied or unavailable");
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera not supported in this browser");
+      }
+
+      // Stop existing stream
+      if (stream) {
+        console.log("Stopping existing stream");
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      console.log("Requesting camera with constraints:", videoConstraints);
+
+      // Add a timeout to prevent infinite loading
+      const streamPromise = navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false,
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Camera request timeout")), 10000)
+      );
+
+      const newStream = await Promise.race([streamPromise, timeoutPromise]);
+      console.log("Camera stream obtained:", newStream);
+
+      setStream(newStream);
+
+      // Attach stream to video element with error handling
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+
+        // Wait for video to load
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          setIsLoading(false);
+        };
+
+        // Handle video load error
+        videoRef.current.onerror = (error) => {
+          console.error("Video element error:", error);
+          setCameraError("Failed to load camera stream");
+          setIsLoading(false);
+        };
+      } else {
+        console.log("Video ref not available, setting loading to false");
+        setIsLoading(false);
+      }
+
+      // Also attach to webcamRef if provided (for compatibility)
+      if (webcamRef && webcamRef.current) {
+        webcamRef.current.srcObject = newStream;
+      }
+    } catch (error) {
+      console.error("Camera initialization error:", error);
+      setIsLoading(false);
+
+      let errorMessage = "Camera access denied or unavailable";
+
+      if (error.message === "Camera request timeout") {
+        errorMessage = "Camera is taking too long to load. Please try again.";
+      } else if (error.name === "NotAllowedError") {
+        errorMessage =
+          "Camera permission denied. Please allow camera access and refresh.";
+      } else if (error.name === "NotFoundError") {
+        errorMessage = "No camera found on this device.";
+      } else if (error.name === "NotReadableError") {
+        errorMessage = "Camera is being used by another application.";
+      } else if (error.name === "OverconstrainedError") {
+        errorMessage =
+          "Camera doesn't support the requested settings. Try switching cameras.";
+      }
+
+      setCameraError(errorMessage);
+    }
   };
 
   const switchCamera = () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   };
 
-  const requestCameraPermission = async () => {
-    try {
-      setIsLoading(true);
-      setCameraError(null);
+  const capturePhoto = () => {
+    if (!videoRef.current) return null;
 
-      // Request permission explicitly
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-      });
+    const canvas = document.createElement("canvas");
+    const video = videoRef.current;
 
-      // Stop the stream immediately - we just wanted to test permissions
-      stream.getTracks().forEach((track) => track.stop());
-    } catch (error) {
-      console.error("Permission error:", error);
-      setCameraError(
-        "Camera permission required. Please allow camera access and try again."
-      );
-      setIsLoading(false);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    return canvas.toDataURL("image/jpeg", 0.95);
+  };
+
+  const handleCapture = () => {
+    const imageSrc = capturePhoto();
+    if (imageSrc && onCapture) {
+      onCapture(imageSrc);
     }
+  };
+
+  const retryCamera = () => {
+    initializeCamera();
   };
 
   return (
@@ -65,10 +153,10 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
             📷 Position ingredients clearly
           </div>
 
-          {/* Camera switch button */}
           <button
             onClick={switchCamera}
             className="bg-black bg-opacity-50 text-white text-xs px-2 py-1 absolute top-2 right-2 rounded z-10 hover:bg-opacity-70"
+            disabled={isLoading || cameraError}
           >
             🔄 Switch
           </button>
@@ -76,9 +164,11 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
           <div className="w-full aspect-video bg-black flex items-center justify-center rounded-lg overflow-hidden">
             {cameraError ? (
               <div className="text-center p-4">
-                <div className="text-red-400 mb-4">❌ {cameraError}</div>
+                <div className="text-red-400 mb-4 text-sm">
+                  ❌ {cameraError}
+                </div>
                 <button
-                  onClick={requestCameraPermission}
+                  onClick={retryCamera}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
                 >
                   🔄 Retry Camera Access
@@ -87,18 +177,24 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
             ) : isLoading ? (
               <div className="text-white text-center">
                 <div className="animate-spin text-2xl mb-2">⏳</div>
-                <div>Loading camera...</div>
+                <div className="text-sm">Loading camera...</div>
               </div>
             ) : (
-              <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                videoConstraints={videoConstraints}
-                className="w-full h-full object-cover"
-                onUserMedia={handleUserMedia}
-                onUserMediaError={handleUserMediaError}
-                mirrored={facingMode === "user"} // Mirror only for front camera
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onCanPlay={() => {
+                  console.log("Video can play");
+                  setIsLoading(false);
+                }}
+                className={`w-full h-full object-cover ${
+                  facingMode === "user" ? "scale-x-[-1]" : ""
+                }`}
+                style={{
+                  transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                }}
               />
             )}
           </div>
@@ -107,7 +203,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
 
       <div className="flex gap-4 flex-wrap justify-center">
         <button
-          onClick={onCapture}
+          onClick={handleCapture}
           disabled={cameraError || isLoading}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium shadow-md transition-all transform hover:scale-105 cursor-pointer"
         >
