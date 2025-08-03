@@ -176,6 +176,7 @@ function App() {
     });
     setErrorMessage(null);
   };
+  console.log("🌐 API URL in production:", import.meta.env.VITE_API_URL);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-2 sm:p-4 font-sans">
