@@ -9,7 +9,6 @@ import HowItWorks from "./components/HowItWorks";
 
 // START: Main App Component
 function App() {
-  console.log("🌐 API URL in production:", import.meta.env.VITE_API_URL);
   const webcamRef = useRef(null);
   const [imageSrc, setImageSrc] = useState(null);
   const [analysis, setAnalysis] = useState(null);
