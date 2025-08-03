@@ -18,30 +18,33 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 px-4 sm:px-0">
-      <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-2xl">
-        <div className="aspect-video bg-black">
+    <div className="space-y-6">
+      {/* Card wrapper */}
+      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        {/* Webcam container */}
+        <div className="relative aspect-video bg-black rounded-2xl">
           <Webcam
             ref={webcamRef}
             audio={false}
             screenshotFormat="image/jpeg"
             videoConstraints={videoConstraints}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl"
             mirrored={false}
           />
         </div>
       </div>
 
-      <div className="flex gap-6 flex-wrap justify-center">
+      {/* Buttons */}
+      <div className="flex flex-wrap justify-center gap-4">
         <button
           onClick={handleCapture}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow transition-transform hover:scale-105 cursor-pointer"
+          className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow hover:bg-blue-700 transition transform hover:scale-105"
         >
           📸 Capture Photo
         </button>
         <button
           onClick={onBack}
-          className="text-red-600 border border-red-300 px-6 py-3 rounded-xl hover:bg-red-50 transition cursor-pointer"
+          className="flex items-center gap-2 border border-red-300 text-red-600 px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl font-medium shadow-sm hover:bg-red-50 transition transform hover:scale-105"
         >
           🔙 Back
         </button>
