@@ -14,7 +14,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Longer cache TTL for better performance
+// Extended cache for better performance
 const cache = new NodeCache({ stdTTL: 172800 }); // 48 hours
 
 if (!process.env.GEMINI_API_KEY) {
@@ -28,7 +28,7 @@ app.use(helmet());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100, // Increased limit
+  max: 100,
   message: { error: "Too many requests, please try again later" },
 });
 app.use(limiter);
@@ -50,7 +50,6 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Simplified harmful ingredients set for faster lookup
 const harmfulIngredients = new Set([
   "trans fat",
   "partially hydrogenated oil",
@@ -70,7 +69,6 @@ const harmfulIngredients = new Set([
   "sodium benzoate",
 ]);
 
-// Optimized allergen detection
 const allergens = {
   gluten: ["wheat", "barley", "rye", "malt", "triticale"],
   dairy: ["milk", "lactose", "casein", "whey", "butter", "cream"],
@@ -90,7 +88,6 @@ function generateCacheKey(ingredients) {
 function detectAllergens(ingredients) {
   const detectedAllergens = [];
   const ingredientsLower = ingredients.toLowerCase();
-
   for (const [allergen, keywords] of Object.entries(allergens)) {
     if (keywords.some((keyword) => ingredientsLower.includes(keyword))) {
       detectedAllergens.push(allergen);
@@ -101,10 +98,9 @@ function detectAllergens(ingredients) {
 
 function calculateHealthScore(analysis) {
   let score = 100;
-  let goodCount = 0,
-    badCount = 0,
-    neutralCount = 0;
-
+  let goodCount = 0;
+  let badCount = 0;
+  let neutralCount = 0;
   analysis.forEach((item) => {
     switch (item.status.toLowerCase()) {
       case "good":
@@ -120,22 +116,19 @@ function calculateHealthScore(analysis) {
         break;
     }
   });
-
   return {
     score: Math.max(0, Math.min(100, score)),
     breakdown: { good: goodCount, bad: badCount, neutral: neutralCount },
   };
 }
 
-// Optimized ingredient extraction
 function extractIngredients(text) {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  let ingredientLines = [];
-  let startFound = false;
-
+  let ingredientLines = [],
+    startFound = false;
   for (let line of lines) {
     if (!startFound && /ingredients?|contents?|contains?/i.test(line)) {
       startFound = true;
@@ -148,13 +141,11 @@ function extractIngredients(text) {
         /^(nutritional|nutrition|storage|manufactured|marketed|packed|usage|instructions|allergy|net weight|best before|expiry)/i.test(
           line
         )
-      ) {
+      )
         break;
-      }
       ingredientLines.push(line);
     }
   }
-
   return ingredientLines
     .join(" ")
     .replace(/[{}[\]]/g, "")
@@ -167,22 +158,34 @@ function extractIngredients(text) {
     .trim();
 }
 
-// Optimized Gemini prompt
 function createGeminiPrompt(ingredients) {
-  return `Analyze these ingredients as a nutritionist. Return ONLY valid JSON array:
+  return `You are a certified nutritionist and food safety expert. Analyze these food ingredients and provide a comprehensive health assessment.
+IMPORTANT: Return ONLY a valid JSON array. No markdown, explanations, or extra text.
+For each ingredient, determine:
+- Health impact (Good/Bad/Neutral)
+- Brief scientific reason
+- Specific health concerns if any
+Ingredients to analyze:
 ${ingredients}
-
-Format:
-[{"ingredient":"name","status":"Good/Bad/Neutral","reason":"brief reason","concerns":["concern1"]}]`;
+Expected JSON format:
+[
+  {
+    "ingredient": "sugar",
+    "status": "Bad",
+    "reason": "High glycemic index, linked to obesity and diabetes",
+    "concerns": ["diabetes", "obesity", "dental health"]
+  }
+]`.trim();
 }
 
+// Import the optimized OCR functions
 import {
   preprocessImage,
   performOCRWithMultipleVersions,
-  performFastOCR,
+  performSmartOCR,
+  ultraFastPreprocess,
 } from "./optimized-ocr.js";
 
-// Add a fast mode endpoint
 app.post("/api/analyze", async (req, res) => {
   const startTime = Date.now();
   const { image, fastMode = false } = req.body;
@@ -194,44 +197,47 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
+    console.log(`🚀 Starting analysis (fastMode: ${fastMode})`);
+
     const imageBuffer = Buffer.from(image.split(",")[1] || image, "base64");
 
-    let ocrResult;
+    let bestOcrResult;
 
     if (fastMode) {
-      // Fast mode: Single OCR attempt
-      console.log("🚀 Using fast mode");
-      ocrResult = await performFastOCR(imageBuffer);
+      // Fast mode: Use smart OCR directly
+      const processedBuffer = await ultraFastPreprocess(imageBuffer);
+      bestOcrResult = await performSmartOCR(processedBuffer);
     } else {
-      // Standard mode: Multiple attempts with early termination
+      // Standard mode: Use existing flow but with new OCR
       const processedImages = await preprocessImage(imageBuffer);
-      ocrResult = await performOCRWithMultipleVersions(processedImages);
+      bestOcrResult = await performOCRWithMultipleVersions(processedImages);
     }
 
-    if (!ocrResult) {
+    if (!bestOcrResult) {
       return res.status(400).json({ error: "OCR failed", code: "OCR_FAILED" });
     }
 
-    const ingredientsOnly = extractIngredients(ocrResult.text);
+    console.log(
+      `🔍 OCR completed: ${bestOcrResult.method}, confidence: ${bestOcrResult.confidence}%`
+    );
 
+    const ingredientsOnly = extractIngredients(bestOcrResult.text);
     if (!ingredientsOnly || ingredientsOnly.length < 5) {
       return res.status(400).json({
-        error: "Insufficient ingredients detected",
+        error: "Insufficient ingredients",
         code: "INSUFFICIENT_INGREDIENTS",
         extractedText: ingredientsOnly,
       });
     }
 
-    // Check cache first
     const cacheKey = generateCacheKey(ingredientsOnly);
     const cachedResult = cache.get(cacheKey);
-
     if (cachedResult) {
-      console.log(`✅ Cache hit - ${Date.now() - startTime}ms`);
+      console.log(`💾 Cache hit: ${Date.now() - startTime}ms`);
       return res.json({ ...cachedResult, cached: true });
     }
 
-    // Gemini API call with timeout
+    // Gemini analysis with timeout
     const prompt = createGeminiPrompt(ingredientsOnly);
     const geminiStartTime = Date.now();
 
@@ -243,30 +249,23 @@ app.post("/api/analyze", async (req, res) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 1024, // Reduced for faster response
-            },
+            generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
           }),
         }
       ),
-      new Promise(
-        (_, reject) =>
-          setTimeout(() => reject(new Error("Gemini API timeout")), 10000) // 10s timeout
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini timeout")), 15000)
       ),
     ]);
 
     const geminiTime = Date.now() - geminiStartTime;
-    console.log(`🤖 Gemini API: ${geminiTime}ms`);
+    console.log(`🤖 Gemini analysis: ${geminiTime}ms`);
 
     const geminiJson = await geminiResponse.json();
-
     if (geminiJson.error) {
-      return res.status(500).json({
-        error: "Gemini API error",
-        code: "GEMINI_API_ERROR",
-        details: geminiJson.error.message,
-      });
+      return res
+        .status(500)
+        .json({ error: "Gemini API error", code: "GEMINI_API_ERROR" });
     }
 
     let geminiText =
@@ -281,19 +280,19 @@ app.post("/api/analyze", async (req, res) => {
     try {
       analysis = JSON.parse(geminiText);
     } catch (e) {
-      console.error("Parse error:", geminiText.substring(0, 200));
-      return res.status(500).json({
-        error: "Failed to parse AI response",
-        code: "PARSE_ERROR",
-      });
+      console.error("Parse error:", e.message);
+      return res
+        .status(500)
+        .json({ error: "Parse error", code: "PARSE_ERROR" });
     }
 
-    // Quick processing of additional data
     const allergenInfo = detectAllergens(ingredientsOnly);
     const healthScore = calculateHealthScore(analysis);
     const harmfulDetected = analysis.filter((item) =>
       harmfulIngredients.has(item.ingredient.toLowerCase())
     );
+
+    const totalTime = Date.now() - startTime;
 
     const result = {
       ingredientsText: ingredientsOnly,
@@ -301,43 +300,24 @@ app.post("/api/analyze", async (req, res) => {
       healthScore,
       allergens: allergenInfo,
       harmfulIngredients: harmfulDetected,
-      ocrConfidence: ocrResult.confidence,
-      ocrMethod: `${ocrResult.imageName}-${ocrResult.configName}`,
-      processingTime: Date.now() - startTime,
+      ocrConfidence: bestOcrResult.confidence,
+      ocrMethod: bestOcrResult.method,
+      processingTime: totalTime,
       cached: false,
-      performance: {
-        ocrTime: ocrResult.processingTime || 0,
-        geminiTime,
-        totalTime: Date.now() - startTime,
-      },
     };
 
-    // Cache the result
     cache.set(cacheKey, result);
 
-    console.log(`✅ Total processing: ${result.processingTime}ms`);
+    console.log(`✅ Total processing: ${totalTime}ms`);
     res.json(result);
   } catch (error) {
-    console.error("Analysis error:", error);
+    console.error("Analysis error:", error.message);
     res.status(500).json({
-      error: "Internal server error",
+      error: "Internal error",
       code: "INTERNAL_ERROR",
       processingTime: Date.now() - startTime,
     });
   }
-});
-
-// Health endpoint with cache stats
-app.get("/health", (req, res) => {
-  res.json({
-    status: "OK",
-    timestamp: new Date().toISOString(),
-    cache: {
-      keys: cache.keys().length,
-      hits: cache.getStats().hits,
-      misses: cache.getStats().misses,
-    },
-  });
 });
 
 app.all("*", (req, res) =>
