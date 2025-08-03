@@ -1,37 +1,108 @@
-const AnalysisResult = ({ analysis }) => {
+const AnalysisResult = ({
+  analysis,
+  healthScore,
+  allergens,
+  processingTime,
+}) => {
+  const getScoreColor = (score) => {
+    if (score >= 80) return "text-green-600";
+    if (score >= 60) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getScoreBg = (score) => {
+    if (score >= 80) return "bg-green-50";
+    if (score >= 60) return "bg-yellow-50";
+    return "bg-red-50";
+  };
+
   return (
-    <div className="bg-gray-50 p-4 sm:p-5 rounded-xl shadow space-y-4 overflow-x-auto">
-      <div>
-        <h2 className="font-semibold text-green-800 text-lg">
-          🧠 Health Analysis
+    <div className="space-y-6">
+      {/* Health Score Card */}
+      {healthScore && (
+        <div
+          className={`${getScoreBg(healthScore.score)} p-4 rounded-xl border`}
+        >
+          <div className="text-center">
+            <div
+              className={`text-4xl font-bold ${getScoreColor(
+                healthScore.score
+              )}`}
+            >
+              {healthScore.score}/100
+            </div>
+            <div className="text-sm text-gray-600 mt-1">Health Score</div>
+            {processingTime && (
+              <div className="text-xs text-gray-500 mt-2">
+                ⚡ Analyzed in {processingTime}ms
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Allergens Alert */}
+      {allergens && allergens.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="font-semibold text-red-800 mb-2">⚠️ Allergen Alert</h3>
+          <div className="flex flex-wrap gap-2">
+            {allergens.map((allergen, idx) => (
+              <span
+                key={idx}
+                className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium"
+              >
+                {allergen}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Analysis */}
+      <div className="bg-gray-50 p-4 sm:p-5 rounded-xl shadow space-y-4">
+        <h2 className="font-semibold text-green-800 text-lg flex items-center gap-2">
+          🧠 Detailed Analysis
+          <span className="text-sm font-normal text-gray-600">
+            ({analysis?.length || 0} ingredients)
+          </span>
         </h2>
-        <div className="space-y-3 text-sm text-gray-800">
+
+        <div className="grid gap-3">
           {Array.isArray(analysis) &&
             analysis.map((item, idx) => (
               <div
                 key={idx}
-                className="bg-white border border-gray-200 rounded-md p-3 shadow-sm"
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
               >
-                <p>
-                  <strong>Ingredient:</strong> {item.ingredient}
-                </p>
-                <p>
-                  <strong>Status:</strong>{" "}
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-medium text-gray-900">
+                    {item.ingredient}
+                  </h3>
                   <span
-                    className={`font-semibold ${
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       item.status === "Good"
-                        ? "text-green-600"
+                        ? "bg-green-100 text-green-800"
                         : item.status === "Bad"
-                        ? "text-red-600"
-                        : "text-yellow-600"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-yellow-100 text-yellow-800"
                     }`}
                   >
                     {item.status}
                   </span>
-                </p>
-                <p>
-                  <strong>Reason:</strong> {item.reason}
-                </p>
+                </div>
+                <p className="text-sm text-gray-700">{item.reason}</p>
+                {item.concerns && item.concerns.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {item.concerns.map((concern, cidx) => (
+                      <span
+                        key={cidx}
+                        className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs"
+                      >
+                        {concern}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
         </div>

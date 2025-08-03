@@ -1,33 +1,40 @@
 import React from "react";
 
-const HowItWorks = () => {
-  return (
-    <div className="text-gray-700 bg-gray-50 p-4 sm:p-5 rounded-xl shadow space-y-4">
-      <h2 className="text-lg font-semibold text-blue-800 text-center">
-        📋 How to Use This App
-      </h2>
-      <p className="text-sm sm:text-base text-center">
-        Upload a clear image of the <strong>ingredient list</strong> printed on
-        your food product. This helps the system extract and analyze ingredients
-        for their health impact.
-      </p>
-      <p className="text-sm sm:text-base text-center text-gray-600 italic">
-        Do not upload the full package — just focus on the part where
-        ingredients are written.
-      </p>
-      <div className="flex justify-center">
-        <img
-          src="/ingredient.jpeg" // ✅ Make sure you place this image in the `public` folder
-          alt="Example Ingredient Area"
-          className="rounded-lg shadow max-w-xs sm:max-w-md"
-        />
+// START: HowItWorks Component
+const HowItWorks = () => (
+  <div className="text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-xl shadow-md space-y-4">
+    <h2 className="text-xl font-bold text-blue-800 text-center flex items-center justify-center gap-2">
+      📋 How It Works
+    </h2>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+      <div className="space-y-2">
+        <div className="text-3xl">📷</div>
+        <h3 className="font-semibold">1. Capture</h3>
+        <p className="text-sm text-gray-600">
+          Take a clear photo of the ingredients list
+        </p>
       </div>
-      <p className="text-sm text-center text-gray-500 mt-2">
-        Example: An ideal photo shows only the text like “Ingredients: Water,
-        Sugar, Salt...”
-      </p>
+      <div className="space-y-2">
+        <div className="text-3xl">🤖</div>
+        <h3 className="font-semibold">2. AI Analysis</h3>
+        <p className="text-sm text-gray-600">
+          Our AI reads and analyzes each ingredient
+        </p>
+      </div>
+      <div className="space-y-2">
+        <div className="text-3xl">📊</div>
+        <h3 className="font-semibold">3. Health Score</h3>
+        <p className="text-sm text-gray-600">
+          Get instant health insights and recommendations
+        </p>
+      </div>
     </div>
-  );
-};
+    <div className="text-center text-sm text-gray-600 bg-white p-3 rounded-lg">
+      💡 <strong>Tip:</strong> Focus only on the ingredients section for best
+      results
+    </div>
+  </div>
+);
+// END: HowItWorks Component
 
 export default HowItWorks;
