@@ -6,6 +6,7 @@ import ModeSelection from "./components/ModeSelection";
 import ImagePreview from "./components/ImagePreview";
 import AnalysisResult from "./components/AnalysisResult";
 import HowItWorks from "./components/HowItWorks";
+import { compressImage } from "./utils/imageUtils";
 
 // START: Main App Component
 function App() {
@@ -28,16 +29,23 @@ function App() {
   const [fullResults, setFullResults] = useState(null);
 
   // Background processing function
-  const startBackgroundProcessing = async (imageData) => {
+  const startBackgroundProcessing = async (imageData, fastMode = true) => {
     setProcessingState({
       isProcessing: true,
-      status: "📝 Extracting text...",
-      progress: 20,
+      status: "🔄 Optimizing image...",
+      progress: 10,
       ocrText: null,
       analysisPromise: null,
     });
 
     try {
+      // Compress image for faster processing
+      setProcessingState(prev => ({
+        ...prev,
+        status: "📝 Extracting text...",
+        progress: 30,
+      }));
+
       const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
       // Send image to backend
@@ -46,8 +54,17 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ image: imageData }),
+        body: JSON.stringify({ 
+          image: imageData,
+          fastMode: fastMode 
+        }),
       });
+
+      setProcessingState(prev => ({
+        ...prev,
+        status: "🧠 AI analyzing ingredients...",
+        progress: 70,
+      }));
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
@@ -122,8 +139,11 @@ function App() {
   const captureImage = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     if (imageSrc) {
-      setImageSrc(imageSrc);
-      startBackgroundProcessing(imageSrc);
+      // Compress image before processing
+      compressImage(imageSrc, 0.8, 1200).then(compressedImage => {
+        setImageSrc(compressedImage);
+        startBackgroundProcessing(compressedImage, true);
+      });
     } else {
       setErrorMessage(
         "❌ Could not capture image. Please allow camera access."
@@ -134,12 +154,26 @@ function App() {
   // Handle file upload and start background processing
   const handleUpload = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage("❌ File too large. Please select an image under 10MB.");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageSrc(reader.result);
-      startBackgroundProcessing(reader.result);
+    reader.onloadend = async () => {
+      try {
+        // Compress uploaded image
+        const compressedImage = await compressImage(reader.result, 0.8, 1200);
+        setImageSrc(compressedImage);
+        startBackgroundProcessing(compressedImage, true);
+      } catch (error) {
+        setErrorMessage("❌ Failed to process image. Please try another image.");
+      }
     };
-    if (file) reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
   };
 
   // Instant analysis (results already ready!)
@@ -179,32 +213,28 @@ function App() {
   console.log("🌐 API URL in production:", import.meta.env.VITE_API_URL);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-2 sm:p-4 font-sans">
-      <div className="max-w-4xl mx-auto shadow-2xl bg-white rounded-3xl p-4 sm:p-8 space-y-6 sm:space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-3 sm:p-4 font-sans">
+      <div className="max-w-4xl mx-auto shadow-2xl bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-8 space-y-4 sm:space-y-8">
         <a href="/" className="block">
           {/* Enhanced Header with better spacing, icon and subtle animations */}
-          <div className="text-center space-y-2 py-2">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 to-green-600 rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
-                <svg
-                  className="w-6 h-6 sm:w-7 sm:h-7 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
+          <div className="text-center space-y-1 sm:space-y-2 py-1 sm:py-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 to-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+                <svg className="w-4 h-4 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7.5V8.5C15 9.6 14.1 10.5 13 10.5S11 9.6 11 8.5V7.5L9 7.5V8.5C9 9.6 8.1 10.5 7 10.5S5 9.6 5 8.5V7.5L3 7V9C3 10.1 3.9 11 5 11V12.5C5 13.6 5.9 14.5 7 14.5S9 13.6 9 12.5V11H15V12.5C15 13.6 15.9 14.5 17 14.5S19 13.6 19 12.5V11C20.1 11 21 10.1 21 9ZM7.5 18C7.5 18.8 8.2 19.5 9 19.5S10.5 18.8 10.5 18V16.5H13.5V18C13.5 18.8 14.2 19.5 15 19.5S16.5 18.8 16.5 18V16.5H7.5V18Z" />
                 </svg>
               </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-700 via-slate-700 to-green-700 bg-clip-text text-transparent leading-tight animate-pulse">
+              <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-700 via-slate-700 to-green-700 bg-clip-text text-transparent leading-tight">
                 <span className="inline-block transform hover:scale-105 transition-all duration-500 hover:text-blue-800">
                   AI
                 </span>
-                <span className="mx-2">Ingredient</span>
+                <span className="mx-1 sm:mx-2">Ingredient</span>
                 <span className="inline-block transform hover:scale-105 transition-all duration-500 hover:text-green-800">
                   Analyzer
                 </span>
               </h1>
             </div>
-            <p className="text-sm sm:text-base text-gray-700 font-medium opacity-90 hover:opacity-100 transition-opacity duration-300">
+            <p className="text-xs sm:text-base text-gray-700 font-medium opacity-90 hover:opacity-100 transition-opacity duration-300">
               Instant health analysis of food ingredients
             </p>
           </div>
@@ -235,8 +265,14 @@ function App() {
           />
         )}
         {errorMessage && (
-          <div className="text-red-600 font-medium text-center bg-red-100 border border-red-300 px-4 py-2 rounded-xl shadow-sm animate-pulse">
+          <div className="text-red-600 font-medium text-center bg-red-100 border border-red-300 px-3 sm:px-4 py-2 rounded-xl shadow-sm animate-pulse text-sm">
             {errorMessage}
+            <button 
+              onClick={() => setErrorMessage(null)}
+              className="ml-2 text-red-800 hover:text-red-900"
+            >
+              ✕
+            </button>
           </div>
         )}
 

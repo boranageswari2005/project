@@ -181,7 +181,10 @@ function validateIngredientText(text) {
 // OPTION 1: Gemini Vision OCR with validation
 export async function performGeminiVisionOCR(imageBuffer) {
   try {
+    const startTime = Date.now();
     const base64Image = imageBuffer.toString("base64");
+    
+    console.log(`🔍 Gemini Vision: Processing ${(base64Image.length / 1024).toFixed(1)}KB image`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -193,7 +196,7 @@ export async function performGeminiVisionOCR(imageBuffer) {
             {
               parts: [
                 {
-                  text: "Extract all text from this image, especially ingredient lists, nutrition facts, and food labels. Return only the raw text without any formatting or explanations. If this is not a food product label or ingredient list, respond with 'NOT_FOOD_LABEL'.",
+                  text: "Extract ONLY the ingredients list from this food label image. Focus on the section that starts with 'Ingredients:' or 'Contains:'. Return the raw ingredient text without formatting. If no ingredients are visible, respond with 'NO_INGREDIENTS_FOUND'.",
                 },
                 {
                   inline_data: {
@@ -206,12 +209,14 @@ export async function performGeminiVisionOCR(imageBuffer) {
           ],
           generationConfig: {
             temperature: 0,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 512,
+            candidateCount: 1,
           },
         }),
       }
     );
 
+    const processingTime = Date.now() - startTime;
     const result = await response.json();
 
     if (result.error) {
@@ -226,7 +231,7 @@ export async function performGeminiVisionOCR(imageBuffer) {
     }
 
     // Check if Gemini detected it's not a food label
-    if (extractedText.trim() === "NOT_FOOD_LABEL") {
+    if (extractedText.trim() === "NO_INGREDIENTS_FOUND" || extractedText.trim() === "NOT_FOOD_LABEL") {
       throw new Error(
         "Image does not appear to contain ingredient information"
       );
@@ -241,9 +246,10 @@ export async function performGeminiVisionOCR(imageBuffer) {
 
     return {
       text: extractedText.trim(),
-      confidence: Math.min(validation.confidence, 85),
+      confidence: Math.min(validation.confidence, 90),
       method: "gemini_vision",
       words: extractedText.trim().split(/\s+/).length,
+      processingTime,
       validation,
     };
   } catch (error) {
@@ -255,16 +261,40 @@ export async function performGeminiVisionOCR(imageBuffer) {
 // Ultra-fast preprocessing
 export async function ultraFastPreprocess(imageBuffer) {
   try {
+    // Get image info first
+    const metadata = await sharp(imageBuffer).metadata();
+    console.log(`📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
+    
+    // Determine optimal size based on original dimensions
+    const maxWidth = metadata.width > 2000 ? 1200 : Math.min(metadata.width, 1000);
+    
     const processed = await sharp(imageBuffer)
-      .resize(1200, null, {
+      .resize(maxWidth, null, {
         withoutEnlargement: true,
-        kernel: sharp.kernel.nearest,
+        kernel: sharp.kernel.lanczos3,
       })
-      .normalize()
-      .modulate({ brightness: 1.1, contrast: 1.2 })
-      .jpeg({ quality: 80, progressive: false })
+      .normalize({
+        lower: 1,
+        upper: 99
+      })
+      .modulate({ 
+        brightness: 1.05, 
+        contrast: 1.15,
+        saturation: 0.9
+      })
+      .sharpen({
+        sigma: 1,
+        flat: 1,
+        jagged: 2
+      })
+      .jpeg({ 
+        quality: 85, 
+        progressive: false,
+        mozjpeg: true
+      })
       .toBuffer();
 
+    console.log(`✅ Processed: ${(processed.length / 1024).toFixed(1)}KB (${((1 - processed.length / imageBuffer.length) * 100).toFixed(1)}% reduction)`);
     return processed;
   } catch (error) {
     console.error("[Ultra Fast Preprocessing Error]", error);

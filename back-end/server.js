@@ -188,7 +188,7 @@ import {
 
 app.post("/api/analyze", async (req, res) => {
   const startTime = Date.now();
-  const { image, fastMode = false } = req.body;
+  const { image, fastMode = true } = req.body;
 
   if (!image) {
     return res
@@ -197,18 +197,22 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    console.log(`🚀 Starting analysis (fastMode: ${fastMode})`);
+    console.log(`🚀 Starting analysis (fastMode: ${fastMode}, mobile optimized)`);
 
     const imageBuffer = Buffer.from(image.split(",")[1] || image, "base64");
+    
+    // Log image size for debugging
+    console.log(`📊 Image size: ${(imageBuffer.length / 1024).toFixed(1)}KB`);
 
     let bestOcrResult;
 
-    if (fastMode) {
-      // Fast mode: Use smart OCR directly
+    // Always use fast mode for mobile optimization
+    try {
       const processedBuffer = await ultraFastPreprocess(imageBuffer);
       bestOcrResult = await performSmartOCR(processedBuffer);
-    } else {
-      // Standard mode: Use existing flow but with new OCR
+    } catch (fastError) {
+      console.log(`⚠️ Fast mode failed: ${fastError.message}, trying standard mode`);
+      // Fallback to standard mode
       const processedImages = await preprocessImage(imageBuffer);
       bestOcrResult = await performOCRWithMultipleVersions(processedImages);
     }
@@ -218,7 +222,7 @@ app.post("/api/analyze", async (req, res) => {
     }
 
     console.log(
-      `🔍 OCR completed: ${bestOcrResult.method}, confidence: ${bestOcrResult.confidence}%`
+      `🔍 OCR completed: ${bestOcrResult.method}, confidence: ${bestOcrResult.confidence}%, processing: ${bestOcrResult.processingTime || 0}ms`
     );
 
     const ingredientsOnly = extractIngredients(bestOcrResult.text);
@@ -241,20 +245,27 @@ app.post("/api/analyze", async (req, res) => {
     const prompt = createGeminiPrompt(ingredientsOnly);
     const geminiStartTime = Date.now();
 
+    // Reduced timeout for mobile
+    const timeoutMs = fastMode ? 10000 : 15000;
+
     const geminiResponse = await Promise.race([
       fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+            generationConfig: { 
+              temperature: 0.1, 
+              maxOutputTokens: fastMode ? 800 : 1024,
+              candidateCount: 1
+            },
           }),
         }
       ),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Gemini timeout")), 15000)
+        setTimeout(() => reject(new Error("Gemini timeout")), timeoutMs)
       ),
     ]);
 
@@ -303,6 +314,7 @@ app.post("/api/analyze", async (req, res) => {
       ocrConfidence: bestOcrResult.confidence,
       ocrMethod: bestOcrResult.method,
       processingTime: totalTime,
+      fastMode,
       cached: false,
     };
 
@@ -312,9 +324,25 @@ app.post("/api/analyze", async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error("Analysis error:", error.message);
+    
+    // More specific error messages for mobile users
+    let errorMessage = "Internal error";
+    let errorCode = "INTERNAL_ERROR";
+    
+    if (error.message.includes("timeout")) {
+      errorMessage = "Analysis timed out. Please try with a clearer image.";
+      errorCode = "TIMEOUT_ERROR";
+    } else if (error.message.includes("Invalid ingredient image")) {
+      errorMessage = "Please upload a clear image of food ingredient labels";
+      errorCode = "INVALID_IMAGE";
+    } else if (error.message.includes("network") || error.message.includes("fetch")) {
+      errorMessage = "Network error. Please check your connection.";
+      errorCode = "NETWORK_ERROR";
+    }
+    
     res.status(500).json({
-      error: "Internal error",
-      code: "INTERNAL_ERROR",
+      error: errorMessage,
+      code: errorCode,
       processingTime: Date.now() - startTime,
     });
   }
