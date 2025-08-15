@@ -259,36 +259,40 @@ export async function performGeminiVisionOCR(imageBuffer) {
 }
 
 // Ultra-fast preprocessing
-export async function ultraFastPreprocess(imageBuffer) {
+export async function ultraFastPreprocess(imageBuffer, isMobile = false) {
   try {
     // Get image info first
     const metadata = await sharp(imageBuffer).metadata();
     console.log(`📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
     
-    // Determine optimal size based on original dimensions
-    const maxWidth = metadata.width > 2000 ? 1200 : Math.min(metadata.width, 1000);
+    // Enhanced mobile optimization
+    const maxWidth = isMobile 
+      ? Math.min(metadata.width, 1000)  // Smaller for mobile
+      : metadata.width > 2000 ? 1200 : Math.min(metadata.width, 1200);
+    
+    const quality = isMobile ? 80 : 85; // Lower quality for mobile to reduce processing time
     
     const processed = await sharp(imageBuffer)
       .resize(maxWidth, null, {
         withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3,
+        kernel: isMobile ? sharp.kernel.cubic : sharp.kernel.lanczos3,
       })
       .normalize({
         lower: 1,
         upper: 99
       })
       .modulate({ 
-        brightness: 1.05, 
-        contrast: 1.15,
+        brightness: isMobile ? 1.1 : 1.05, 
+        contrast: isMobile ? 1.2 : 1.15,
         saturation: 0.9
       })
       .sharpen({
-        sigma: 1,
+        sigma: isMobile ? 0.8 : 1,
         flat: 1,
         jagged: 2
       })
       .jpeg({ 
-        quality: 85, 
+        quality, 
         progressive: false,
         mozjpeg: true
       })
@@ -363,7 +367,9 @@ export async function performSmartOCR(imageBuffer) {
       // If it's a validation error, don't fallback - throw it up
       if (
         error.message.includes("Invalid ingredient image") ||
-        error.message.includes("does not appear to contain ingredient")
+        error.message.includes("does not appear to contain ingredient") ||
+        error.message.includes("quota exceeded") ||
+        error.message.includes("rate limit")
       ) {
         throw error;
       }

@@ -1,20 +1,20 @@
 // App.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import WebcamCapture from "./components/WebcamCapture";
 import ImageUploader from "./components/ImageUploader";
 import ModeSelection from "./components/ModeSelection";
 import ImagePreview from "./components/ImagePreview";
 import AnalysisResult from "./components/AnalysisResult";
 import HowItWorks from "./components/HowItWorks";
-import { compressImage } from "./utils/imageUtils";
+import { compressImage, detectDeviceCapabilities } from "./utils/imageUtils";
 
-// START: Main App Component
 function App() {
   const webcamRef = useRef(null);
   const [imageSrc, setImageSrc] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [mode, setMode] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [deviceCapabilities, setDeviceCapabilities] = useState(null);
 
   // Enhanced state for background processing
   const [processingState, setProcessingState] = useState({
@@ -28,8 +28,30 @@ function App() {
   const [analysisReady, setAnalysisReady] = useState(false);
   const [fullResults, setFullResults] = useState(null);
 
-  // Background processing function
-  const startBackgroundProcessing = async (imageData, fastMode = true) => {
+  // Detect device capabilities on mount
+  useEffect(() => {
+    const capabilities = detectDeviceCapabilities();
+    setDeviceCapabilities(capabilities);
+    console.log('📱 Device capabilities:', capabilities);
+  }, []);
+
+  // Get API URL with fallback
+  const getApiUrl = useCallback(() => {
+    // Try multiple possible API URLs
+    const possibleUrls = [
+      import.meta.env.VITE_API_URL,
+      import.meta.env.VITE_API,
+      "https://smart-ingredient-analyzer.onrender.com",
+      "http://localhost:5000"
+    ];
+    
+    const apiUrl = possibleUrls.find(url => url && url.trim()) || "http://localhost:5000";
+    console.log('🌐 Using API URL:', apiUrl);
+    return apiUrl;
+  }, []);
+
+  // Enhanced background processing function
+  const startBackgroundProcessing = useCallback(async (imageData) => {
     setProcessingState({
       isProcessing: true,
       status: "🔄 Optimizing image...",
@@ -39,16 +61,23 @@ function App() {
     });
 
     try {
-      // Compress image for faster processing
+      // Get optimal settings based on device
+      const settings = deviceCapabilities || detectDeviceCapabilities();
+      
       setProcessingState(prev => ({
         ...prev,
         status: "📝 Extracting text...",
         progress: 30,
       }));
 
-      const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const API = getApiUrl();
 
-      // Send image to backend
+      // Create request with timeout based on device
+      const timeoutMs = settings.isMobile ? 15000 : 20000;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
       const response = await fetch(`${API}/api/analyze`, {
         method: "POST",
         headers: {
@@ -56,9 +85,13 @@ function App() {
         },
         body: JSON.stringify({ 
           image: imageData,
-          fastMode: fastMode 
+          fastMode: settings.fastMode,
+          isMobile: settings.isMobile
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       setProcessingState(prev => ({
         ...prev,
@@ -74,18 +107,26 @@ function App() {
 
         console.error("🔴 Analysis failed:", errorData);
 
-        setProcessingState((prev) => ({
+        let userFriendlyMessage = "❌ Analysis failed, please try again.";
+        
+        if (response.status === 413) {
+          userFriendlyMessage = "❌ Image too large. Please try a smaller image.";
+        } else if (response.status === 429) {
+          userFriendlyMessage = "❌ Too many requests. Please wait a moment.";
+        } else if (errorData.code === "INSUFFICIENT_INGREDIENTS") {
+          userFriendlyMessage = "❌ No ingredient list found. Please focus on the ingredients section.";
+        }
+
+        setProcessingState(prev => ({
           ...prev,
-          status: `❌ ${errorData.error || "Analysis failed"}`,
+          status: userFriendlyMessage,
           progress: 0,
         }));
 
-        // Optional: show a popup message
-        setErrorMessage(`❌ Analysis failed, kindly try again.`);
+        setErrorMessage(userFriendlyMessage);
 
-        // Stop processing after 3 seconds
         setTimeout(() => {
-          setProcessingState((prev) => ({
+          setProcessingState(prev => ({
             ...prev,
             isProcessing: false,
           }));
@@ -96,7 +137,7 @@ function App() {
 
       const result = await response.json();
 
-      setProcessingState((prev) => ({
+      setProcessingState(prev => ({
         ...prev,
         status: "✅ Analysis complete!",
         progress: 100,
@@ -108,81 +149,112 @@ function App() {
       setAnalysisReady(true);
 
       setTimeout(() => {
-        setProcessingState((prev) => ({
+        setProcessingState(prev => ({
           ...prev,
           isProcessing: false,
         }));
-      }, 2000);
-    } catch (error) {
-      console.error("🔴 Background processing error:", error.message);
+      }, 1500);
 
-      setProcessingState((prev) => ({
+    } catch (error) {
+      console.error("🔴 Background processing error:", error);
+
+      let errorMsg = "❌ Could not reach the server. Please check your connection.";
+      
+      if (error.name === 'AbortError') {
+        errorMsg = "❌ Request timed out. Please try with a clearer, smaller image.";
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMsg = "❌ Network error. Please check your internet connection.";
+      }
+
+      setProcessingState(prev => ({
         ...prev,
-        status: "❌ Failed to reach server",
+        status: errorMsg,
         progress: 0,
       }));
 
-      setErrorMessage(
-        "❌ Could not reach the server. Please check your connection."
-      );
+      setErrorMessage(errorMsg);
 
       setTimeout(() => {
-        setProcessingState((prev) => ({
+        setProcessingState(prev => ({
           ...prev,
           isProcessing: false,
         }));
       }, 3000);
     }
-  };
+  }, [deviceCapabilities, getApiUrl]);
 
-  // Capture image and start background processing
-  const captureImage = () => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (imageSrc) {
-      // Compress image before processing
-      compressImage(imageSrc, 0.8, 1200).then(compressedImage => {
-        setImageSrc(compressedImage);
-        startBackgroundProcessing(compressedImage, true);
-      });
-    } else {
-      setErrorMessage(
-        "❌ Could not capture image. Please allow camera access."
+  // Enhanced capture function
+  const captureImage = useCallback(async () => {
+    try {
+      const imageSrc = webcamRef.current?.getScreenshot();
+      if (!imageSrc) {
+        setErrorMessage("❌ Could not capture image. Please allow camera access.");
+        return;
+      }
+
+      // Get optimal compression settings
+      const settings = deviceCapabilities || detectDeviceCapabilities();
+      
+      const compressedImage = await compressImage(
+        imageSrc, 
+        settings.quality, 
+        settings.maxWidth
       );
+      
+      setImageSrc(compressedImage);
+      startBackgroundProcessing(compressedImage);
+    } catch (error) {
+      console.error('Capture error:', error);
+      setErrorMessage("❌ Failed to capture image. Please try again.");
     }
-  };
+  }, [deviceCapabilities, startBackgroundProcessing]);
 
-  // Handle file upload and start background processing
-  const handleUpload = (e) => {
+  // Enhanced upload handler
+  const handleUpload = useCallback(async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage("❌ File too large. Please select an image under 10MB.");
+    // Enhanced file validation
+    const maxSize = deviceCapabilities?.isMobile ? 8 * 1024 * 1024 : 10 * 1024 * 1024; // 8MB mobile, 10MB desktop
+    
+    if (file.size > maxSize) {
+      const maxSizeMB = Math.round(maxSize / (1024 * 1024));
+      setErrorMessage(`❌ File too large. Please select an image under ${maxSizeMB}MB.`);
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setErrorMessage("❌ Please select a valid image file (JPG, PNG, WebP).");
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = async () => {
       try {
-        // Compress uploaded image
-        const compressedImage = await compressImage(reader.result, 0.8, 1200);
+        const settings = deviceCapabilities || detectDeviceCapabilities();
+        
+        const compressedImage = await compressImage(
+          reader.result, 
+          settings.quality, 
+          settings.maxWidth
+        );
+        
         setImageSrc(compressedImage);
-        startBackgroundProcessing(compressedImage, true);
+        startBackgroundProcessing(compressedImage);
       } catch (error) {
+        console.error('Upload processing error:', error);
         setErrorMessage("❌ Failed to process image. Please try another image.");
       }
     };
     reader.readAsDataURL(file);
-  };
+  }, [deviceCapabilities, startBackgroundProcessing]);
 
-  // Instant analysis (results already ready!)
-  const analyzeImage = async () => {
+  // Instant analysis function
+  const analyzeImage = useCallback(async () => {
     if (analysisReady && fullResults) {
-      // Results are ready - show them instantly!
       setAnalysis(fullResults.analysis);
     } else if (processingState.analysisPromise) {
-      // Still processing - wait for completion
       try {
         const response = await processingState.analysisPromise;
         setFullResults(response);
@@ -190,12 +262,12 @@ function App() {
         setAnalysisReady(true);
       } catch (error) {
         console.error("Error analyzing image:", error);
-        alert("Failed to analyze image. Please try again.");
+        setErrorMessage("❌ Failed to analyze image. Please try again.");
       }
     }
-  };
+  }, [analysisReady, fullResults, processingState.analysisPromise]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setImageSrc(null);
     setAnalysis(null);
     setMode(null);
@@ -209,22 +281,20 @@ function App() {
       analysisPromise: null,
     });
     setErrorMessage(null);
-  };
-  console.log("🌐 API URL in production:", import.meta.env.VITE_API_URL);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-3 sm:p-4 font-sans">
-      <div className="max-w-4xl mx-auto shadow-2xl bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-8 space-y-4 sm:space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-2 sm:p-4 font-sans">
+      <div className="max-w-4xl mx-auto shadow-2xl bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-4 sm:space-y-8">
         <a href="/" className="block">
-          {/* Enhanced Header with better spacing, icon and subtle animations */}
-          <div className="text-center space-y-1 sm:space-y-2 py-1 sm:py-2">
-            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 to-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
-                <svg className="w-4 h-4 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <div className="text-center space-y-2 py-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 to-green-600 rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+                <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7.5V8.5C15 9.6 14.1 10.5 13 10.5S11 9.6 11 8.5V7.5L9 7.5V8.5C9 9.6 8.1 10.5 7 10.5S5 9.6 5 8.5V7.5L3 7V9C3 10.1 3.9 11 5 11V12.5C5 13.6 5.9 14.5 7 14.5S9 13.6 9 12.5V11H15V12.5C15 13.6 15.9 14.5 17 14.5S19 13.6 19 12.5V11C20.1 11 21 10.1 21 9ZM7.5 18C7.5 18.8 8.2 19.5 9 19.5S10.5 18.8 10.5 18V16.5H13.5V18C13.5 18.8 14.2 19.5 15 19.5S16.5 18.8 16.5 18V16.5H7.5V18Z" />
                 </svg>
               </div>
-              <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-700 via-slate-700 to-green-700 bg-clip-text text-transparent leading-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-700 via-slate-700 to-green-700 bg-clip-text text-transparent leading-tight">
                 <span className="inline-block transform hover:scale-105 transition-all duration-500 hover:text-blue-800">
                   AI
                 </span>
@@ -234,7 +304,7 @@ function App() {
                 </span>
               </h1>
             </div>
-            <p className="text-xs sm:text-base text-gray-700 font-medium opacity-90 hover:opacity-100 transition-opacity duration-300">
+            <p className="text-sm sm:text-base text-gray-700 font-medium opacity-90 hover:opacity-100 transition-opacity duration-300">
               Instant health analysis of food ingredients
             </p>
           </div>
@@ -264,12 +334,13 @@ function App() {
             analysisReady={analysisReady}
           />
         )}
+
         {errorMessage && (
-          <div className="text-red-600 font-medium text-center bg-red-100 border border-red-300 px-3 sm:px-4 py-2 rounded-xl shadow-sm animate-pulse text-sm">
+          <div className="text-red-600 font-medium text-center bg-red-100 border border-red-300 px-4 py-3 rounded-xl shadow-sm animate-pulse text-sm">
             {errorMessage}
             <button 
               onClick={() => setErrorMessage(null)}
-              className="ml-2 text-red-800 hover:text-red-900"
+              className="ml-3 text-red-800 hover:text-red-900 font-bold"
             >
               ✕
             </button>
@@ -288,6 +359,5 @@ function App() {
     </div>
   );
 }
-// END: Main App Component
 
 export default App;

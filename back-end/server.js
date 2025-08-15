@@ -38,7 +38,12 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://smart-ingredient-analyzer.vercel.app"]
+        ? [
+            "https://smart-ingredient-analyzer.vercel.app",
+            "https://ai-ingredient-analyzer.vercel.app",
+            /\.vercel\.app$/,
+            /\.netlify\.app$/
+          ]
         : ["http://localhost:3000", "http://localhost:5173"],
     credentials: true,
   })
@@ -188,7 +193,7 @@ import {
 
 app.post("/api/analyze", async (req, res) => {
   const startTime = Date.now();
-  const { image, fastMode = true } = req.body;
+  const { image, fastMode = true, isMobile = false } = req.body;
 
   if (!image) {
     return res
@@ -197,7 +202,7 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    console.log(`🚀 Starting analysis (fastMode: ${fastMode}, mobile optimized)`);
+    console.log(`🚀 Starting analysis (fastMode: ${fastMode}, isMobile: ${isMobile})`);
 
     const imageBuffer = Buffer.from(image.split(",")[1] || image, "base64");
     
@@ -206,9 +211,9 @@ app.post("/api/analyze", async (req, res) => {
 
     let bestOcrResult;
 
-    // Always use fast mode for mobile optimization
+    // Enhanced mobile optimization
     try {
-      const processedBuffer = await ultraFastPreprocess(imageBuffer);
+      const processedBuffer = await ultraFastPreprocess(imageBuffer, isMobile);
       bestOcrResult = await performSmartOCR(processedBuffer);
     } catch (fastError) {
       console.log(`⚠️ Fast mode failed: ${fastError.message}, trying standard mode`);
@@ -245,8 +250,8 @@ app.post("/api/analyze", async (req, res) => {
     const prompt = createGeminiPrompt(ingredientsOnly);
     const geminiStartTime = Date.now();
 
-    // Reduced timeout for mobile
-    const timeoutMs = fastMode ? 10000 : 15000;
+    // Adaptive timeout based on device
+    const timeoutMs = isMobile ? 12000 : fastMode ? 15000 : 20000;
 
     const geminiResponse = await Promise.race([
       fetch(
@@ -258,7 +263,7 @@ app.post("/api/analyze", async (req, res) => {
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { 
               temperature: 0.1, 
-              maxOutputTokens: fastMode ? 800 : 1024,
+              maxOutputTokens: isMobile ? 600 : fastMode ? 800 : 1024,
               candidateCount: 1
             },
           }),
@@ -315,6 +320,7 @@ app.post("/api/analyze", async (req, res) => {
       ocrMethod: bestOcrResult.method,
       processingTime: totalTime,
       fastMode,
+      isMobile,
       cached: false,
     };
 

@@ -1,31 +1,77 @@
 import React from "react";
 
-// START: ModeSelection Component
-const ModeSelection = ({ setMode }) => (
-  <div className="flex flex-col items-center gap-4 px-4 sm:px-0">
-    <p className="text-gray-700 text-center mb-2 text-sm sm:text-base">
-      Choose how you'd like to input your product image:
-    </p>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-md">
-      <button
-        onClick={() => setMode("camera")}
-        className="bg-blue-600 hover:bg-blue-700 text-white py-4 sm:py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg cursor-pointer active:scale-95"
-      >
-        <div className="text-3xl sm:text-2xl mb-2">📷</div>
-        <div className="font-medium text-base sm:text-base">Take Photo</div>
-        <div className="text-xs sm:text-xs opacity-90">Use camera</div>
-      </button>
-      <button
-        onClick={() => setMode("upload")}
-        className="bg-green-600 hover:bg-green-700 text-white py-4 sm:py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg cursor-pointer active:scale-95"
-      >
-        <div className="text-3xl sm:text-2xl mb-2">🖼️</div>
-        <div className="font-medium text-base sm:text-base">Upload Image</div>
-        <div className="text-xs sm:text-xs opacity-90">From gallery</div>
-      </button>
+const ModeSelection = ({ setMode }) => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  return (
+    <div className="flex flex-col items-center gap-6 px-2 max-w-full">
+      <div className="text-center space-y-2">
+        <p className="text-gray-700 text-base sm:text-lg font-medium">
+          Choose how you'd like to input your product image:
+        </p>
+        <p className="text-sm text-gray-500">
+          Focus on the ingredients section for best results
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 w-full max-w-md">
+        <button
+          onClick={() => setMode("camera")}
+          className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-6 sm:py-8 px-6 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-xl cursor-pointer group"
+        >
+          <div className="space-y-3">
+            <div className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-300">
+              📷
+            </div>
+            <div className="space-y-1">
+              <div className="font-bold text-lg sm:text-xl">Take Photo</div>
+              <div className="text-sm opacity-90">
+                {isMobile ? "Use camera" : "Use webcam"}
+              </div>
+              <div className="text-xs opacity-75">
+                Real-time capture
+              </div>
+            </div>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => setMode("upload")}
+          className="bg-gradient-to-br from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-6 sm:py-8 px-6 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-xl cursor-pointer group"
+        >
+          <div className="space-y-3">
+            <div className="text-4xl sm:text-5xl group-hover:scale-110 transition-transform duration-300">
+              🖼️
+            </div>
+            <div className="space-y-1">
+              <div className="font-bold text-lg sm:text-xl">Upload Image</div>
+              <div className="text-sm opacity-90">
+                From gallery
+              </div>
+              <div className="text-xs opacity-75">
+                Drag & drop support
+              </div>
+            </div>
+          </div>
+        </button>
+      </div>
+      
+      {/* Device-specific tips */}
+      <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-gray-200 rounded-xl p-4 w-full max-w-md">
+        <div className="text-center">
+          <p className="text-sm text-gray-700 font-medium mb-2">
+            {isMobile ? "📱 Mobile Optimized" : "💻 Desktop Ready"}
+          </p>
+          <p className="text-xs text-gray-600">
+            {isMobile 
+              ? "Optimized for mobile cameras and touch interface"
+              : "Supports webcam capture and file uploads"
+            }
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-);
-// END: ModeSelection Component
+  );
+};
 
 export default ModeSelection;
