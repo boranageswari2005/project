@@ -41,8 +41,9 @@ function App() {
     const possibleUrls = [
       import.meta.env.VITE_API_URL,
       import.meta.env.VITE_API,
-      "https://smart-ingredient-analyzer.onrender.com",
-      "http://localhost:5000"
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+      "https://smart-ingredient-analyzer.onrender.com"
     ];
     
     const apiUrl = possibleUrls.find(url => url && url.trim()) || "http://localhost:5000";
@@ -78,6 +79,9 @@ function App() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      console.log(`🌐 Making request to: ${API}/api/analyze`);
+      console.log(`📊 Request settings: fastMode=${settings.fastMode}, isMobile=${settings.isMobile}`);
+
       const response = await fetch(`${API}/api/analyze`, {
         method: "POST",
         headers: {
@@ -93,6 +97,8 @@ function App() {
 
       clearTimeout(timeoutId);
 
+      console.log(`📡 Response status: ${response.status}`);
+
       setProcessingState(prev => ({
         ...prev,
         status: "🧠 AI analyzing ingredients...",
@@ -105,7 +111,11 @@ function App() {
           code: "UNKNOWN",
         }));
 
-        console.error("🔴 Analysis failed:", errorData);
+        console.error("🔴 Analysis failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
 
         let userFriendlyMessage = "❌ Analysis failed, please try again.";
         
@@ -113,8 +123,18 @@ function App() {
           userFriendlyMessage = "❌ Image too large. Please try a smaller image.";
         } else if (response.status === 429) {
           userFriendlyMessage = "❌ Too many requests. Please wait a moment.";
+        } else if (response.status === 0 || !response.status) {
+          userFriendlyMessage = "❌ Cannot connect to server. Please check if the backend is running.";
         } else if (errorData.code === "INSUFFICIENT_INGREDIENTS") {
           userFriendlyMessage = "❌ No ingredient list found. Please focus on the ingredients section.";
+        } else if (errorData.code === "INVALID_IMAGE_DATA") {
+          userFriendlyMessage = "❌ Invalid image format. Please try a different image.";
+        } else if (errorData.code === "OCR_FAILED") {
+          userFriendlyMessage = "❌ Could not read text from image. Please try a clearer photo.";
+        } else if (errorData.code === "GEMINI_API_ERROR") {
+          userFriendlyMessage = "❌ AI analysis failed. Please try again in a moment.";
+        } else if (errorData.code === "QUOTA_EXCEEDED") {
+          userFriendlyMessage = "❌ Service temporarily unavailable. Please try again later.";
         }
 
         setProcessingState(prev => ({

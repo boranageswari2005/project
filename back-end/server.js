@@ -44,7 +44,7 @@ app.use(
             /\.vercel\.app$/,
             /\.netlify\.app$/
           ]
-        : ["http://localhost:3000", "http://localhost:5173"],
+        : ["http://localhost:3000", "http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:5173"],
     credentials: true,
   })
 );
@@ -128,15 +128,20 @@ function calculateHealthScore(analysis) {
 }
 
 function extractIngredients(text) {
+  console.log(`🔍 Extracting ingredients from: "${text.substring(0, 100)}..."`);
+  
   const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+    
   let ingredientLines = [],
     startFound = false;
+    
   for (let line of lines) {
     if (!startFound && /ingredients?|contents?|contains?/i.test(line)) {
       startFound = true;
+      console.log(`📍 Found ingredients start: "${line}"`);
       const cleanLine = line.replace(/^ingredients?:?\s*/i, "");
       if (cleanLine) ingredientLines.push(cleanLine);
       continue;
@@ -146,12 +151,15 @@ function extractIngredients(text) {
         /^(nutritional|nutrition|storage|manufactured|marketed|packed|usage|instructions|allergy|net weight|best before|expiry)/i.test(
           line
         )
-      )
+      ) {
+        console.log(`🛑 Found end marker: "${line}"`);
         break;
+      }
       ingredientLines.push(line);
     }
   }
-  return ingredientLines
+  
+  const result = ingredientLines
     .join(" ")
     .replace(/[{}[\]]/g, "")
     .replace(/\s+/g, " ")
@@ -161,6 +169,9 @@ function extractIngredients(text) {
     .replace(/,\s*,/g, ",")
     .replace(/\(\s*\)/g, "")
     .trim();
+    
+  console.log(`✅ Final extracted ingredients: "${result}"`);
+  return result;
 }
 
 function createGeminiPrompt(ingredients) {
@@ -195,6 +206,8 @@ app.post("/api/analyze", async (req, res) => {
   const startTime = Date.now();
   const { image, fastMode = true, isMobile = false } = req.body;
 
+  console.log(`📥 Received analysis request: fastMode=${fastMode}, isMobile=${isMobile}`);
+
   if (!image) {
     return res
       .status(400)
@@ -207,7 +220,15 @@ app.post("/api/analyze", async (req, res) => {
     const imageBuffer = Buffer.from(image.split(",")[1] || image, "base64");
     
     // Log image size for debugging
-    console.log(`📊 Image size: ${(imageBuffer.length / 1024).toFixed(1)}KB`);
+    console.log(`📊 Image size: ${(imageBuffer.length / 1024).toFixed(1)}KB, buffer length: ${imageBuffer.length}`);
+
+    // Validate image buffer
+    if (imageBuffer.length === 0) {
+      return res.status(400).json({ 
+        error: "Invalid image data", 
+        code: "INVALID_IMAGE_DATA" 
+      });
+    }
 
     let bestOcrResult;
 
@@ -231,11 +252,18 @@ app.post("/api/analyze", async (req, res) => {
     );
 
     const ingredientsOnly = extractIngredients(bestOcrResult.text);
+    console.log(`📝 Extracted ingredients: "${ingredientsOnly}"`);
+    
     if (!ingredientsOnly || ingredientsOnly.length < 5) {
+      console.log(`❌ Insufficient ingredients: length=${ingredientsOnly?.length || 0}`);
       return res.status(400).json({
         error: "Insufficient ingredients",
         code: "INSUFFICIENT_INGREDIENTS",
         extractedText: ingredientsOnly,
+        debug: {
+          originalText: bestOcrResult.text,
+          extractedLength: ingredientsOnly?.length || 0
+        }
       });
     }
 
@@ -278,10 +306,17 @@ app.post("/api/analyze", async (req, res) => {
     console.log(`🤖 Gemini analysis: ${geminiTime}ms`);
 
     const geminiJson = await geminiResponse.json();
+    console.log(`🤖 Gemini response status: ${geminiResponse.status}`);
+    
     if (geminiJson.error) {
+      console.error("Gemini API error:", geminiJson.error);
       return res
         .status(500)
-        .json({ error: "Gemini API error", code: "GEMINI_API_ERROR" });
+        .json({ 
+          error: "Gemini API error", 
+          code: "GEMINI_API_ERROR",
+          details: geminiJson.error.message || "Unknown Gemini error"
+        });
     }
 
     let geminiText =
@@ -295,11 +330,17 @@ app.post("/api/analyze", async (req, res) => {
     let analysis;
     try {
       analysis = JSON.parse(geminiText);
+      console.log(`✅ Parsed analysis: ${analysis.length} ingredients`);
     } catch (e) {
-      console.error("Parse error:", e.message);
+      console.error("Parse error:", e.message, "Raw text:", geminiText);
       return res
         .status(500)
-        .json({ error: "Parse error", code: "PARSE_ERROR" });
+        .json({ 
+          error: "Parse error", 
+          code: "PARSE_ERROR",
+          details: e.message,
+          rawResponse: geminiText.substring(0, 200)
+        });
     }
 
     const allergenInfo = detectAllergens(ingredientsOnly);
@@ -330,6 +371,7 @@ app.post("/api/analyze", async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error("Analysis error:", error.message);
+    console.error("Full error:", error);
     
     // More specific error messages for mobile users
     let errorMessage = "Internal error";
@@ -341,6 +383,12 @@ app.post("/api/analyze", async (req, res) => {
     } else if (error.message.includes("Invalid ingredient image")) {
       errorMessage = "Please upload a clear image of food ingredient labels";
       errorCode = "INVALID_IMAGE";
+    } else if (error.message.includes("quota exceeded")) {
+      errorMessage = "API quota exceeded. Please try again later.";
+      errorCode = "QUOTA_EXCEEDED";
+    } else if (error.message.includes("rate limit")) {
+      errorMessage = "Too many requests. Please wait a moment.";
+      errorCode = "RATE_LIMITED";
     } else if (error.message.includes("network") || error.message.includes("fetch")) {
       errorMessage = "Network error. Please check your connection.";
       errorCode = "NETWORK_ERROR";
@@ -350,6 +398,7 @@ app.post("/api/analyze", async (req, res) => {
       error: errorMessage,
       code: errorCode,
       processingTime: Date.now() - startTime,
+      debug: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }
 });

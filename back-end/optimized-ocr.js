@@ -161,8 +161,8 @@ function validateIngredientText(text) {
     score -= 10;
   }
 
-  // Must have minimum score to be considered valid
-  const minScore = 15;
+  // Lower minimum score for better acceptance
+  const minScore = 10;
   const isValid = score >= minScore;
 
   return {

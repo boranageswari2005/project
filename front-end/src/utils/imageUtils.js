@@ -29,6 +29,8 @@ export const detectDeviceCapabilities = () => {
 export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
   return new Promise((resolve, reject) => {
     try {
+      console.log(`🖼️ Starting image compression: quality=${quality}, maxWidth=${maxWidth}`);
+      
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -37,6 +39,7 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
         try {
           // Calculate optimal dimensions
           let { width, height } = img;
+          console.log(`📐 Original dimensions: ${width}x${height}`);
           
           // Maintain aspect ratio while resizing
           if (width > maxWidth) {
@@ -50,6 +53,8 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
             height = (height * minWidth) / width;
             width = minWidth;
           }
+          
+          console.log(`📐 Final dimensions: ${width}x${height}`);
           
           canvas.width = width;
           canvas.height = height;
@@ -65,12 +70,12 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
           const imageData = ctx.getImageData(0, 0, width, height);
           const data = imageData.data;
           
-          // Enhance contrast and brightness for better OCR
+          // Gentle enhancement for better OCR (reduced intensity)
           for (let i = 0; i < data.length; i += 4) {
-            // Increase contrast
-            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.2 + 128));     // Red
-            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * 1.2 + 128)); // Green
-            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * 1.2 + 128)); // Blue
+            // Gentle contrast enhancement
+            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.1 + 128));     // Red
+            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * 1.1 + 128)); // Green
+            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * 1.1 + 128)); // Blue
           }
           
           ctx.putImageData(imageData, 0, 0);
