@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Webcam from "react-webcam";
 
+const CAPTURE_WIDTH = 1280;
+const CAPTURE_HEIGHT = 720;
+
 const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState("environment");
 
-  // Enhanced video constraints for better mobile experience
+  // Updated video constraints to use fixed capture size
   const getVideoConstraints = useCallback(() => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
     return {
-      width: { ideal: isMobile ? 1280 : 1920, min: 640 },
-      height: { ideal: isMobile ? 720 : 1080, min: 480 },
+      width: CAPTURE_WIDTH,
+      height: CAPTURE_HEIGHT,
       facingMode: { ideal: facingMode },
-      aspectRatio: { ideal: 16/9 },
-      frameRate: { ideal: 30, max: 30 }
+      aspectRatio: { ideal: 16 / 9 },
+      frameRate: { ideal: 30, max: 30 },
     };
   }, [facingMode]);
 
@@ -30,14 +31,11 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
     setIsReady(false);
   }, []);
 
+  // Updated capture handler - no width, height or quality options provided so
+  // screenshot matches the visible webcam preview size exactly
   const handleCapture = useCallback(() => {
     try {
-      const imageSrc = webcamRef.current?.getScreenshot({
-        width: 1280,
-        height: 720,
-        quality: 0.8
-      });
-      
+      const imageSrc = webcamRef.current?.getScreenshot();
       if (imageSrc) {
         onCapture(imageSrc);
       } else {
@@ -50,7 +48,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   }, [webcamRef, onCapture]);
 
   const switchCamera = useCallback(() => {
-    setFacingMode(prev => prev === "environment" ? "user" : "environment");
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   }, []);
 
   // Clear error after 5 seconds
@@ -72,6 +70,8 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
               audio={false}
               screenshotFormat="image/jpeg"
               screenshotQuality={0.8}
+              width={CAPTURE_WIDTH}
+              height={CAPTURE_HEIGHT}
               videoConstraints={getVideoConstraints()}
               onUserMedia={handleUserMedia}
               onUserMediaError={handleUserMediaError}
@@ -93,7 +93,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
               </div>
             </div>
           )}
-          
+
           {/* Enhanced overlay guides */}
           {isReady && !error && (
             <div className="absolute inset-0 pointer-events-none">
@@ -102,19 +102,19 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
               <div className="absolute top-4 right-4 w-8 h-8 border-r-3 border-t-3 border-white opacity-60 rounded-tr-lg"></div>
               <div className="absolute bottom-4 left-4 w-8 h-8 border-l-3 border-b-3 border-white opacity-60 rounded-bl-lg"></div>
               <div className="absolute bottom-4 right-4 w-8 h-8 border-r-3 border-b-3 border-white opacity-60 rounded-br-lg"></div>
-              
+
               {/* Center guide */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="bg-black bg-opacity-60 text-white px-4 py-2 rounded-xl text-sm font-medium backdrop-blur-sm">
                   📋 Focus on ingredients list
                 </div>
               </div>
-              
+
               {/* Focus area indicator */}
               <div className="absolute inset-x-8 inset-y-16 border-2 border-dashed border-white opacity-40 rounded-lg"></div>
             </div>
           )}
-          
+
           {/* Loading indicator */}
           {!isReady && !error && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
@@ -137,7 +137,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
           <span className="text-xl sm:text-lg">📸</span>
           <span>Capture Photo</span>
         </button>
-        
+
         {/* Camera switch button for mobile */}
         <button
           onClick={switchCamera}
@@ -147,7 +147,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
           <span className="text-lg sm:text-base">🔄</span>
           <span>Switch</span>
         </button>
-        
+
         <button
           onClick={onBack}
           className="flex items-center justify-center gap-3 border-2 border-red-300 text-red-600 px-8 py-4 sm:px-6 sm:py-3 rounded-xl font-semibold shadow-sm cursor-pointer hover:bg-red-50 transition-all transform hover:scale-105 active:scale-95 text-base sm:text-sm"
@@ -156,7 +156,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
           <span>Back</span>
         </button>
       </div>
-      
+
       {/* Enhanced mobile tips */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mx-2">
         <div className="text-center">

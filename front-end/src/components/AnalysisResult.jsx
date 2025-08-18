@@ -18,44 +18,60 @@ const AnalysisResult = ({
     return "bg-red-50 border-red-200";
   };
 
-  const getScoreGradient = (score) => {
-    if (score >= 80) return "from-green-500 to-green-600";
-    if (score >= 60) return "from-yellow-500 to-yellow-600";
-    return "from-red-500 to-red-600";
-  };
+  // const getScoreGradient = (score) => {
+  //   if (score >= 80) return "from-green-500 to-green-600";
+  //   if (score >= 60) return "from-yellow-500 to-yellow-600";
+  //   return "from-red-500 to-red-600";
+  // };
 
   return (
     <div className="space-y-4 sm:space-y-6 px-2 max-w-full">
       {/* Enhanced Health Score Card */}
       {healthScore && (
-        <div className={`${getScoreBg(healthScore.score)} p-6 sm:p-8 rounded-2xl border-2 shadow-xl`}>
+        <div
+          className={`${getScoreBg(
+            healthScore.score
+          )} p-6 sm:p-8 rounded-2xl border-2 shadow-xl`}
+        >
           <div className="text-center space-y-4">
             <div className="relative">
-              <div className={`text-5xl sm:text-6xl font-black ${getScoreColor(healthScore.score)} mb-2`}>
+              <div
+                className={`text-5xl sm:text-6xl font-black ${getScoreColor(
+                  healthScore.score
+                )} mb-2`}
+              >
                 {healthScore.score}
                 <span className="text-2xl sm:text-3xl">/100</span>
               </div>
-              <div className="text-lg sm:text-xl text-gray-700 font-semibold">Health Score</div>
+              <div className="text-lg sm:text-xl text-gray-700 font-semibold">
+                Health Score
+              </div>
             </div>
-            
+
             {/* Score breakdown */}
             {healthScore.breakdown && (
               <div className="flex justify-center gap-4 text-sm">
                 <div className="text-center">
-                  <div className="font-bold text-green-600">{healthScore.breakdown.good}</div>
+                  <div className="font-bold text-green-600">
+                    {healthScore.breakdown.good}
+                  </div>
                   <div className="text-xs text-gray-600">Good</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-bold text-yellow-600">{healthScore.breakdown.neutral}</div>
+                  <div className="font-bold text-yellow-600">
+                    {healthScore.breakdown.neutral}
+                  </div>
                   <div className="text-xs text-gray-600">Neutral</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-bold text-red-600">{healthScore.breakdown.bad}</div>
+                  <div className="font-bold text-red-600">
+                    {healthScore.breakdown.bad}
+                  </div>
                   <div className="text-xs text-gray-600">Bad</div>
                 </div>
               </div>
             )}
-            
+
             {processingTime && (
               <div className="text-sm text-gray-600 bg-white bg-opacity-50 rounded-lg px-3 py-1 inline-block">
                 ⚡ Analyzed in {processingTime}ms
@@ -138,11 +154,12 @@ const AnalysisResult = ({
             ))}
         </div>
       </div>
-      
+
       {/* Summary footer */}
       <div className="text-center bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-4 border border-gray-200">
         <p className="text-sm text-gray-700">
-          💡 <strong>Analysis complete!</strong> Make informed choices for better health.
+          💡 <strong>Analysis complete!</strong> Make informed choices for
+          better health.
         </p>
       </div>
     </div>
