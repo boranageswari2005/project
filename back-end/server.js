@@ -172,15 +172,32 @@ function extractIngredients(text) {
   // If no ingredients section found, try to use the entire text
   if (!startFound && ingredientLines.length === 0) {
     console.log("⚠️ No ingredients section found, using entire text");
-    ingredientLines = lines;
+    // Look for lines that might contain ingredients
+    ingredientLines = lines.filter(line => {
+      const lowerLine = line.toLowerCase();
+      return lowerLine.includes('water') || 
+             lowerLine.includes('sugar') || 
+             lowerLine.includes('salt') ||
+             lowerLine.includes('oil') ||
+             lowerLine.includes('spices') ||
+             lowerLine.includes('ins') ||
+             /\d+\.?\d*%/.test(line) ||
+             line.includes(',');
+    });
+    
+    // If still nothing found, use all lines
+    if (ingredientLines.length === 0) {
+      ingredientLines = lines;
+    }
   }
   
   const result = ingredientLines
     .join(" ")
     .replace(/[{}[\]]/g, "")
     .replace(/\s+/g, " ")
-    .replace(/[^\w\s,().%\-]/g, "")
-    .replace(/\b[0-9]+\b/g, "")
+    .replace(/[^\w\s,().%\-:]/g, "")
+    // Don't remove all numbers, keep percentages and INS codes
+    .replace(/\b(?!ins)\d+(?!\d*%|ins)\b/gi, "")
     .replace(/\b[a-zA-Z]{1}\b/g, "")
     .replace(/,\s*,/g, ",")
     .replace(/\(\s*\)/g, "")
@@ -193,12 +210,21 @@ function extractIngredients(text) {
 function createGeminiPrompt(ingredients) {
   return `You are a certified nutritionist and food safety expert. Analyze these food ingredients and provide a comprehensive health assessment.
 IMPORTANT: Return ONLY a valid JSON array. No markdown, explanations, or extra text.
+
+Special notes for Indian food additives:
+- INS codes (like INS1422, INS415, etc.) are food additive codes used in India
+- Treat these as stabilizers, emulsifiers, or preservatives based on their function
+- Jaggery is unrefined sugar, healthier than white sugar but still sugar
+- Tamarind is a natural fruit extract, generally good
+
 For each ingredient, determine:
 - Health impact (Good/Bad/Neutral)
 - Brief scientific reason
 - Specific health concerns if any
+
 Ingredients to analyze:
 ${ingredients}
+
 Expected JSON format:
 [
   {
@@ -358,17 +384,30 @@ app.post("/api/analyze", async (req, res) => {
     if (!ingredientsOnly || ingredientsOnly.length < 5) {
       console.log(`❌ Insufficient ingredients: length=${ingredientsOnly?.length || 0}`);
       console.log(`📝 Original OCR text: "${bestOcrResult.text}"`);
-      return res.status(400).json({
-        error: "No ingredient list found in image. Please focus on the ingredients section of the food label.",
-        code: "INSUFFICIENT_INGREDIENTS",
-        extractedText: ingredientsOnly,
-        debug: {
-          originalText: bestOcrResult.text,
-          extractedLength: ingredientsOnly?.length || 0,
-          ocrMethod: bestOcrResult.method,
-          ocrConfidence: bestOcrResult.confidence
-        }
-      });
+      
+      // Try a more lenient extraction for edge cases
+      const fallbackIngredients = bestOcrResult.text
+        .replace(/nutritional information.*$/i, '')
+        .replace(/serving size.*$/i, '')
+        .replace(/manufactured.*$/i, '')
+        .trim();
+        
+      if (fallbackIngredients && fallbackIngredients.length >= 10) {
+        console.log(`🔄 Using fallback extraction: "${fallbackIngredients}"`);
+        const ingredientsOnly = fallbackIngredients;
+      } else {
+        return res.status(400).json({
+          error: "No ingredient list found in image. Please focus on the ingredients section of the food label.",
+          code: "INSUFFICIENT_INGREDIENTS",
+          extractedText: ingredientsOnly,
+          debug: {
+            originalText: bestOcrResult.text,
+            extractedLength: ingredientsOnly?.length || 0,
+            ocrMethod: bestOcrResult.method,
+            ocrConfidence: bestOcrResult.confidence
+          }
+        });
+      }
     }
 
     const cacheKey = generateCacheKey(ingredientsOnly);

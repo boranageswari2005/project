@@ -7,11 +7,26 @@ const INGREDIENT_KEYWORDS = [
   // Common ingredient words
   "ingredients",
   "contains",
-  "flour",
-  "sugar",
-  "salt",
-  "oil",
   "water",
+  "sugar",
+  "jaggery",
+  "tomato",
+  "paste",
+  "tamarind",
+  "salt",
+  "spices",
+  "condiments",
+  "stabilizers",
+  "acidity",
+  "regulators",
+  "preservative",
+  "ins1422",
+  "ins415",
+  "ins260",
+  "ins334",
+  "ins211",
+  "flour",
+  "oil",
   "milk",
   "egg",
   "wheat",
@@ -44,6 +59,8 @@ const INGREDIENT_KEYWORDS = [
   "lecithin",
 
   // Units and measurements
+  "ins",
+  "e",
   "mg",
   "g",
   "kg",
@@ -135,6 +152,14 @@ function validateIngredientText(text) {
     }
   });
 
+  // Special boost for Indian food additives (INS codes)
+  const insMatches = text.match(/ins\d+/gi) || [];
+  score += insMatches.length * 3;
+  
+  // Boost for percentage indicators
+  const percentageMatches = text.match(/\d+\.?\d*%/g) || [];
+  score += percentageMatches.length * 2;
+
   // Check for nutrition patterns
   NUTRITION_PATTERNS.forEach((pattern, index) => {
     if (pattern.test(text)) {
@@ -162,8 +187,8 @@ function validateIngredientText(text) {
     score -= 10;
   }
 
-  // Even lower minimum score for better acceptance
-  const minScore = 5;
+  // Lower minimum score for better acceptance of various formats
+  const minScore = 3;
   const isValid = score >= minScore;
 
   return {
