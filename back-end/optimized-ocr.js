@@ -118,6 +118,7 @@ function validateIngredientText(text) {
       isValid: false,
       reason: "Text too short to be ingredient list",
       confidence: 0,
+      score: 0,
     };
   }
 
@@ -161,8 +162,8 @@ function validateIngredientText(text) {
     score -= 10;
   }
 
-  // Lower minimum score for better acceptance
-  const minScore = 10;
+  // Even lower minimum score for better acceptance
+  const minScore = 5;
   const isValid = score >= minScore;
 
   return {
@@ -182,9 +183,23 @@ function validateIngredientText(text) {
 export async function performGeminiVisionOCR(imageBuffer) {
   try {
     const startTime = Date.now();
+    
+    // Validate input
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new Error("Invalid image buffer provided");
+    }
+    
     const base64Image = imageBuffer.toString("base64");
     
+    if (!base64Image) {
+      throw new Error("Failed to convert image to base64");
+    }
+    
     console.log(`🔍 Gemini Vision: Processing ${(base64Image.length / 1024).toFixed(1)}KB image`);
+
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("Gemini API key not configured");
+    }
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -196,7 +211,7 @@ export async function performGeminiVisionOCR(imageBuffer) {
             {
               parts: [
                 {
-                  text: "Extract ONLY the ingredients list from this food label image. Focus on the section that starts with 'Ingredients:' or 'Contains:'. Return the raw ingredient text without formatting. If no ingredients are visible, respond with 'NO_INGREDIENTS_FOUND'.",
+                  text: "You are an expert at reading food labels. Extract ONLY the ingredients list from this food label image. Look for sections that start with 'Ingredients:', 'Contains:', or similar. Return the complete ingredient text exactly as written, including commas and parentheses. If you cannot find any ingredients list, respond with exactly 'NO_INGREDIENTS_FOUND'. Do not include nutritional information, allergen warnings, or other text.",
                 },
                 {
                   inline_data: {
@@ -217,10 +232,18 @@ export async function performGeminiVisionOCR(imageBuffer) {
     );
 
     const processingTime = Date.now() - startTime;
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Gemini API HTTP error: ${response.status} - ${errorText}`);
+      throw new Error(`Gemini API HTTP error: ${response.status}`);
+    }
+    
     const result = await response.json();
 
     if (result.error) {
-      throw new Error(result.error.message || "Gemini Vision API error");
+      console.error("❌ Gemini API error:", result.error);
+      throw new Error(result.error.message || `Gemini Vision API error: ${result.error.code || 'unknown'}`);
     }
 
     const extractedText =
@@ -231,7 +254,8 @@ export async function performGeminiVisionOCR(imageBuffer) {
     }
 
     // Check if Gemini detected it's not a food label
-    if (extractedText.trim() === "NO_INGREDIENTS_FOUND" || extractedText.trim() === "NOT_FOOD_LABEL") {
+    const cleanText = extractedText.trim().toUpperCase();
+    if (cleanText === "NO_INGREDIENTS_FOUND" || cleanText === "NOT_FOOD_LABEL" || cleanText.includes("NO INGREDIENTS")) {
       throw new Error(
         "Image does not appear to contain ingredient information"
       );
@@ -241,8 +265,11 @@ export async function performGeminiVisionOCR(imageBuffer) {
     const validation = validateIngredientText(extractedText);
 
     if (!validation.isValid) {
+      console.log(`⚠️ Validation failed: ${validation.reason}, score: ${validation.score}`);
       throw new Error(`Invalid ingredient image: ${validation.reason}`);
     }
+
+    console.log(`✅ Gemini Vision OCR successful: ${extractedText.length} characters extracted`);
 
     return {
       text: extractedText.trim(),

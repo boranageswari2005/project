@@ -130,10 +130,20 @@ function calculateHealthScore(analysis) {
 function extractIngredients(text) {
   console.log(`🔍 Extracting ingredients from: "${text.substring(0, 100)}..."`);
   
+  if (!text || text.trim().length === 0) {
+    console.log("❌ Empty text provided to extractIngredients");
+    return "";
+  }
+  
   const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+    
+  if (lines.length === 0) {
+    console.log("❌ No lines found after splitting text");
+    return text.trim(); // Return original text if no lines found
+  }
     
   let ingredientLines = [],
     startFound = false;
@@ -157,6 +167,12 @@ function extractIngredients(text) {
       }
       ingredientLines.push(line);
     }
+  }
+  
+  // If no ingredients section found, try to use the entire text
+  if (!startFound && ingredientLines.length === 0) {
+    console.log("⚠️ No ingredients section found, using entire text");
+    ingredientLines = lines;
   }
   
   const result = ingredientLines
@@ -204,29 +220,93 @@ import {
 
 app.post("/api/analyze", async (req, res) => {
   const startTime = Date.now();
+  
+  // Enhanced request validation
+  if (!req.body) {
+    console.error("❌ No request body received");
+    return res.status(400).json({ 
+      error: "No request body", 
+      code: "NO_REQUEST_BODY" 
+    });
+  }
+
   const { image, fastMode = true, isMobile = false } = req.body;
 
   console.log(`📥 Received analysis request: fastMode=${fastMode}, isMobile=${isMobile}`);
+  console.log(`📊 Request body keys: ${Object.keys(req.body)}`);
+  console.log(`📊 Image data type: ${typeof image}`);
+  console.log(`📊 Image data length: ${image ? image.length : 'undefined'}`);
 
   if (!image) {
+    console.error("❌ Image field is missing from request");
     return res
       .status(400)
       .json({ error: "Image is missing", code: "MISSING_IMAGE" });
   }
 
+  // Validate image format
+  if (typeof image !== 'string') {
+    console.error("❌ Image data is not a string");
+    return res.status(400).json({ 
+      error: "Image must be a base64 string", 
+      code: "INVALID_IMAGE_FORMAT" 
+    });
+  }
+
   try {
     console.log(`🚀 Starting analysis (fastMode: ${fastMode}, isMobile: ${isMobile})`);
 
-    const imageBuffer = Buffer.from(image.split(",")[1] || image, "base64");
+    // Enhanced image buffer creation with better error handling
+    let imageBuffer;
+    try {
+      // Handle both data URL format and plain base64
+      const base64Data = image.includes(',') ? image.split(",")[1] : image;
+      
+      if (!base64Data) {
+        throw new Error("No base64 data found in image");
+      }
+      
+      // Validate base64 format
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+        throw new Error("Invalid base64 format");
+      }
+      
+      imageBuffer = Buffer.from(base64Data, "base64");
+      
+      if (imageBuffer.length === 0) {
+        throw new Error("Empty image buffer");
+      }
+      
+    } catch (bufferError) {
+      console.error("❌ Buffer creation error:", bufferError.message);
+      return res.status(400).json({ 
+        error: "Invalid image data format", 
+        code: "INVALID_IMAGE_DATA",
+        details: bufferError.message
+      });
+    }
     
     // Log image size for debugging
     console.log(`📊 Image size: ${(imageBuffer.length / 1024).toFixed(1)}KB, buffer length: ${imageBuffer.length}`);
 
-    // Validate image buffer
-    if (imageBuffer.length === 0) {
+    // Validate image size limits
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    if (imageBuffer.length > maxSizeBytes) {
+      console.error(`❌ Image too large: ${imageBuffer.length} bytes`);
+      return res.status(413).json({ 
+        error: "Image file too large", 
+        code: "IMAGE_TOO_LARGE",
+        maxSize: "10MB"
+      });
+    }
+
+    const minSizeBytes = 1024; // 1KB minimum
+    if (imageBuffer.length < minSizeBytes) {
+      console.error(`❌ Image too small: ${imageBuffer.length} bytes`);
       return res.status(400).json({ 
-        error: "Invalid image data", 
-        code: "INVALID_IMAGE_DATA" 
+        error: "Image file too small", 
+        code: "IMAGE_TOO_SMALL",
+        minSize: "1KB"
       });
     }
 
@@ -234,17 +314,38 @@ app.post("/api/analyze", async (req, res) => {
 
     // Enhanced mobile optimization
     try {
+      console.log("🔄 Starting OCR processing...");
       const processedBuffer = await ultraFastPreprocess(imageBuffer, isMobile);
+      console.log("✅ Image preprocessing completed");
       bestOcrResult = await performSmartOCR(processedBuffer);
+      console.log("✅ Smart OCR completed");
     } catch (fastError) {
       console.log(`⚠️ Fast mode failed: ${fastError.message}, trying standard mode`);
       // Fallback to standard mode
-      const processedImages = await preprocessImage(imageBuffer);
-      bestOcrResult = await performOCRWithMultipleVersions(processedImages);
+      try {
+        const processedImages = await preprocessImage(imageBuffer);
+        bestOcrResult = await performOCRWithMultipleVersions(processedImages);
+      } catch (fallbackError) {
+        console.error("❌ Both OCR methods failed:", fallbackError.message);
+        return res.status(400).json({
+          error: "Unable to process image. Please ensure it contains clear text.",
+          code: "OCR_PROCESSING_FAILED",
+          details: fallbackError.message
+        });
+      }
     }
 
     if (!bestOcrResult) {
+      console.error("❌ OCR returned no results");
       return res.status(400).json({ error: "OCR failed", code: "OCR_FAILED" });
+    }
+
+    if (!bestOcrResult.text) {
+      console.error("❌ OCR returned empty text");
+      return res.status(400).json({ 
+        error: "No text detected in image", 
+        code: "NO_TEXT_DETECTED" 
+      });
     }
 
     console.log(
@@ -256,13 +357,16 @@ app.post("/api/analyze", async (req, res) => {
     
     if (!ingredientsOnly || ingredientsOnly.length < 5) {
       console.log(`❌ Insufficient ingredients: length=${ingredientsOnly?.length || 0}`);
+      console.log(`📝 Original OCR text: "${bestOcrResult.text}"`);
       return res.status(400).json({
-        error: "Insufficient ingredients",
+        error: "No ingredient list found in image. Please focus on the ingredients section of the food label.",
         code: "INSUFFICIENT_INGREDIENTS",
         extractedText: ingredientsOnly,
         debug: {
           originalText: bestOcrResult.text,
-          extractedLength: ingredientsOnly?.length || 0
+          extractedLength: ingredientsOnly?.length || 0,
+          ocrMethod: bestOcrResult.method,
+          ocrConfidence: bestOcrResult.confidence
         }
       });
     }
@@ -308,12 +412,21 @@ app.post("/api/analyze", async (req, res) => {
     const geminiJson = await geminiResponse.json();
     console.log(`🤖 Gemini response status: ${geminiResponse.status}`);
     
+    if (!geminiResponse.ok) {
+      console.error("❌ Gemini API HTTP error:", geminiResponse.status, geminiResponse.statusText);
+      return res.status(500).json({ 
+        error: "AI analysis service error", 
+        code: "GEMINI_HTTP_ERROR",
+        status: geminiResponse.status
+      });
+    }
+    
     if (geminiJson.error) {
       console.error("Gemini API error:", geminiJson.error);
       return res
         .status(500)
         .json({ 
-          error: "Gemini API error", 
+          error: "AI analysis failed", 
           code: "GEMINI_API_ERROR",
           details: geminiJson.error.message || "Unknown Gemini error"
         });
@@ -321,22 +434,42 @@ app.post("/api/analyze", async (req, res) => {
 
     let geminiText =
       geminiJson.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+    if (!geminiText) {
+      console.error("❌ Empty response from Gemini API");
+      return res.status(500).json({ 
+        error: "AI analysis returned empty response", 
+        code: "EMPTY_AI_RESPONSE" 
+      });
+    }
+    
     geminiText = geminiText
       .trim()
       .replace(/^```json\s*/i, "")
       .replace(/```\s*$/i, "")
       .trim();
 
+    console.log(`📝 Cleaned Gemini response: "${geminiText.substring(0, 200)}..."`);
+
     let analysis;
     try {
       analysis = JSON.parse(geminiText);
+      
+      if (!Array.isArray(analysis)) {
+        throw new Error("Response is not an array");
+      }
+      
+      if (analysis.length === 0) {
+        throw new Error("Empty analysis array");
+      }
+      
       console.log(`✅ Parsed analysis: ${analysis.length} ingredients`);
     } catch (e) {
       console.error("Parse error:", e.message, "Raw text:", geminiText);
       return res
         .status(500)
         .json({ 
-          error: "Parse error", 
+          error: "Failed to parse AI analysis", 
           code: "PARSE_ERROR",
           details: e.message,
           rawResponse: geminiText.substring(0, 200)
