@@ -147,23 +147,23 @@ function validateIngredientText(text) {
   // Check for ingredient keywords
   INGREDIENT_KEYWORDS.forEach((keyword) => {
     if (lowerText.includes(keyword.toLowerCase())) {
-      score += keyword === "ingredients" ? 10 : 2; // "ingredients" gets higher score
+      score += keyword === "ingredients" ? 15 : 3; // Higher scores for better detection
       foundKeywords.push(keyword);
     }
   });
 
   // Special boost for Indian food additives (INS codes)
   const insMatches = text.match(/ins\d+/gi) || [];
-  score += insMatches.length * 3;
+  score += insMatches.length * 5; // Higher score for INS codes
   
   // Boost for percentage indicators
   const percentageMatches = text.match(/\d+\.?\d*%/g) || [];
-  score += percentageMatches.length * 2;
+  score += percentageMatches.length * 3;
 
   // Check for nutrition patterns
   NUTRITION_PATTERNS.forEach((pattern, index) => {
     if (pattern.test(text)) {
-      score += 5;
+      score += 7;
       foundPatterns.push(`pattern_${index}`);
     }
   });
@@ -171,24 +171,24 @@ function validateIngredientText(text) {
   // Check for comma-separated lists (common in ingredient lists)
   const commaCount = (text.match(/,/g) || []).length;
   if (commaCount >= 3) {
-    score += Math.min(commaCount, 10);
+    score += Math.min(commaCount * 2, 15);
   }
 
   // Check for parentheses (common in ingredient lists for specifications)
   const parenCount = (text.match(/\(/g) || []).length;
   if (parenCount >= 2) {
-    score += Math.min(parenCount * 2, 8);
+    score += Math.min(parenCount * 3, 12);
   }
 
   // Penalty for very short words (might be noise)
   const words = text.split(/\s+/);
   const shortWords = words.filter((word) => word.length <= 2).length;
   if (shortWords > words.length * 0.5) {
-    score -= 10;
+    score -= 5; // Reduced penalty
   }
 
-  // Lower minimum score for better acceptance of various formats
-  const minScore = 3;
+  // Even lower minimum score for better acceptance
+  const minScore = 2;
   const isValid = score >= minScore;
 
   return {
@@ -236,7 +236,7 @@ export async function performGeminiVisionOCR(imageBuffer) {
             {
               parts: [
                 {
-                  text: "You are an expert at reading food labels. Extract ONLY the ingredients list from this food label image. Look for sections that start with 'Ingredients:', 'Contains:', or similar. Return the complete ingredient text exactly as written, including commas and parentheses. If you cannot find any ingredients list, respond with exactly 'NO_INGREDIENTS_FOUND'. Do not include nutritional information, allergen warnings, or other text.",
+                  text: "You are an expert at reading food labels and ingredient lists. Your task is to extract ONLY the ingredients list from this food label image. \n\nLook for sections that start with 'INGREDIENTS:', 'Contains:', 'Composition:', or similar headers. Extract the complete ingredient text exactly as written, preserving all commas, parentheses, percentages, and INS codes (like INS 262, INS 415, etc.).\n\nInclude ALL ingredients from the list, even if they seem unusual or contain numbers/codes. Do not skip any ingredients.\n\nIf you cannot find any ingredients list, respond with exactly 'NO_INGREDIENTS_FOUND'.\n\nDo not include:\n- Nutritional information\n- Allergen warnings (unless they are part of the ingredients list)\n- Manufacturing details\n- Storage instructions\n- Any other text\n\nReturn only the ingredients text, nothing else.",
                 },
                 {
                   inline_data: {
@@ -249,7 +249,7 @@ export async function performGeminiVisionOCR(imageBuffer) {
           ],
           generationConfig: {
             temperature: 0,
-            maxOutputTokens: 512,
+            maxOutputTokens: 1024, // Increased for longer ingredient lists
             candidateCount: 1,
           },
         }),

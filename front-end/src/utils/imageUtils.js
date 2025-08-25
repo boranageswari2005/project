@@ -18,8 +18,9 @@ export const detectDeviceCapabilities = () => {
     isSlowConnection,
     isLowEndDevice,
     isSmallScreen,
-    quality: isSlowConnection ? 0.6 : isMobile ? 0.75 : 0.85,
-    maxWidth: isSlowConnection ? 800 : isMobile ? 1000 : 1200,
+    // Enhanced quality settings for better OCR
+    quality: isSlowConnection ? 0.8 : isMobile ? 0.9 : 0.95,
+    maxWidth: isSlowConnection ? 1200 : isMobile ? 1600 : 1920,
     fastMode: isMobile || isSlowConnection || isLowEndDevice,
     deviceMemory,
     connectionType: navigator.connection?.effectiveType || 'unknown'
@@ -29,7 +30,7 @@ export const detectDeviceCapabilities = () => {
 export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
   return new Promise((resolve, reject) => {
     try {
-      console.log(`🖼️ Starting image compression: quality=${quality}, maxWidth=${maxWidth}`);
+      console.log(`🖼️ Starting image optimization: quality=${quality}, maxWidth=${maxWidth}`);
       
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -41,14 +42,16 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
           let { width, height } = img;
           console.log(`📐 Original dimensions: ${width}x${height}`);
           
-          // Maintain aspect ratio while resizing
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
+          // For OCR, we want to maintain higher resolution
+          // Only resize if image is extremely large
+          const maxOCRWidth = maxWidth * 1.5; // Allow larger images for better OCR
+          if (width > maxOCRWidth) {
+            height = (height * maxOCRWidth) / width;
+            width = maxOCRWidth;
           }
           
-          // Ensure minimum readable size
-          const minWidth = 400;
+          // Ensure minimum readable size for OCR
+          const minWidth = 800; // Increased minimum width for better OCR
           if (width < minWidth) {
             height = (height * minWidth) / width;
             width = minWidth;
@@ -59,29 +62,40 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
           canvas.width = width;
           canvas.height = height;
           
-          // Enhanced image processing for better OCR
+          // Optimized settings for OCR
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           
           // Draw image
           ctx.drawImage(img, 0, 0, width, height);
           
-          // Apply image enhancements for better text recognition
+          // Enhanced image processing specifically for OCR
           const imageData = ctx.getImageData(0, 0, width, height);
           const data = imageData.data;
           
-          // Gentle enhancement for better OCR (reduced intensity)
+          // Advanced OCR-optimized image enhancement
           for (let i = 0; i < data.length; i += 4) {
-            // Gentle contrast enhancement
-            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.1 + 128));     // Red
-            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * 1.1 + 128)); // Green
-            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * 1.1 + 128)); // Blue
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // Convert to grayscale for better text detection
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            // Enhanced contrast and brightness for text
+            const enhanced = Math.min(255, Math.max(0, (gray - 128) * 1.3 + 140));
+            
+            // Apply back to RGB channels
+            data[i] = enhanced;     // Red
+            data[i + 1] = enhanced; // Green
+            data[i + 2] = enhanced; // Blue
           }
           
           ctx.putImageData(imageData, 0, 0);
           
-          // Convert to base64 with optimal quality
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          // Use higher quality for OCR images
+          const ocrQuality = Math.max(quality, 0.9); // Minimum 90% quality for OCR
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', ocrQuality);
           
           // Log compression stats
           const originalSize = file.length || 0;

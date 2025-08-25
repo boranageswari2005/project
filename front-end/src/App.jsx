@@ -212,13 +212,20 @@ function App() {
         return;
       }
 
-      // Get optimal compression settings
+      // Get optimal settings for OCR processing
       const settings = deviceCapabilities || detectDeviceCapabilities();
+      
+      // Use higher quality settings for webcam captures
+      const ocrSettings = {
+        ...settings,
+        quality: Math.max(settings.quality, 0.9), // Minimum 90% quality
+        maxWidth: Math.max(settings.maxWidth, 1600) // Minimum 1600px width
+      };
       
       const compressedImage = await compressImage(
         imageSrc, 
-        settings.quality, 
-        settings.maxWidth
+        ocrSettings.quality, 
+        ocrSettings.maxWidth
       );
       
       setImageSrc(compressedImage);

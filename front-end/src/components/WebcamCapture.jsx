@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Webcam from "react-webcam";
 
-const CAPTURE_WIDTH = 1280;
-const CAPTURE_HEIGHT = 720;
+// Enhanced capture settings for better OCR
+const CAPTURE_WIDTH = 1920;
+const CAPTURE_HEIGHT = 1080;
+const CAPTURE_QUALITY = 0.95; // Higher quality for better OCR
 
 const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   const [isReady, setIsReady] = useState(false);
@@ -15,8 +17,11 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
       width: CAPTURE_WIDTH,
       height: CAPTURE_HEIGHT,
       facingMode: { ideal: facingMode },
-      aspectRatio: { ideal: 16 / 9 },
-      frameRate: { ideal: 30, max: 30 },
+      aspectRatio: { ideal: 16 / 9, min: 1.3, max: 2.0 },
+      frameRate: { ideal: 15, max: 30 }, // Lower framerate for better quality
+      focusMode: { ideal: "continuous" },
+      exposureMode: { ideal: "continuous" },
+      whiteBalanceMode: { ideal: "continuous" }
     };
   }, [facingMode]);
 
@@ -31,11 +36,15 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
     setIsReady(false);
   }, []);
 
-  // Updated capture handler - no width, height or quality options provided so
-  // screenshot matches the visible webcam preview size exactly
+  // Enhanced capture handler with high quality settings
   const handleCapture = useCallback(() => {
     try {
-      const imageSrc = webcamRef.current?.getScreenshot();
+      // Capture with maximum quality and full resolution
+      const imageSrc = webcamRef.current?.getScreenshot({
+        width: CAPTURE_WIDTH,
+        height: CAPTURE_HEIGHT,
+        quality: CAPTURE_QUALITY
+      });
       if (imageSrc) {
         onCapture(imageSrc);
       } else {
@@ -62,21 +71,26 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   return (
     <div className="space-y-4 sm:space-y-6 max-w-full">
       {/* Enhanced camera container */}
-      <div className="bg-gray-900 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden relative">
-        <div className="relative aspect-video bg-black">
+      <div className="bg-gray-900 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden relative max-w-4xl mx-auto">
+        <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
           {!error ? (
             <Webcam
               ref={webcamRef}
               audio={false}
               screenshotFormat="image/jpeg"
-              screenshotQuality={0.8}
-              width={CAPTURE_WIDTH}
-              height={CAPTURE_HEIGHT}
+              screenshotQuality={CAPTURE_QUALITY}
+              width="100%"
+              height="100%"
               videoConstraints={getVideoConstraints()}
               onUserMedia={handleUserMedia}
               onUserMediaError={handleUserMediaError}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover rounded-xl"
               mirrored={facingMode === "user"}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
@@ -96,22 +110,26 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
 
           {/* Enhanced overlay guides */}
           {isReady && !error && (
-            <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 pointer-events-none z-10">
               {/* Corner guides */}
-              <div className="absolute top-4 left-4 w-8 h-8 border-l-3 border-t-3 border-white opacity-60 rounded-tl-lg"></div>
-              <div className="absolute top-4 right-4 w-8 h-8 border-r-3 border-t-3 border-white opacity-60 rounded-tr-lg"></div>
-              <div className="absolute bottom-4 left-4 w-8 h-8 border-l-3 border-b-3 border-white opacity-60 rounded-bl-lg"></div>
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-r-3 border-b-3 border-white opacity-60 rounded-br-lg"></div>
+              <div className="absolute top-6 left-6 w-12 h-12 border-l-4 border-t-4 border-green-400 opacity-80 rounded-tl-lg shadow-lg"></div>
+              <div className="absolute top-6 right-6 w-12 h-12 border-r-4 border-t-4 border-green-400 opacity-80 rounded-tr-lg shadow-lg"></div>
+              <div className="absolute bottom-6 left-6 w-12 h-12 border-l-4 border-b-4 border-green-400 opacity-80 rounded-bl-lg shadow-lg"></div>
+              <div className="absolute bottom-6 right-6 w-12 h-12 border-r-4 border-b-4 border-green-400 opacity-80 rounded-br-lg shadow-lg"></div>
 
               {/* Center guide */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-black bg-opacity-60 text-white px-4 py-2 rounded-xl text-sm font-medium backdrop-blur-sm">
-                  📋 Focus on ingredients list
+                <div className="bg-black bg-opacity-70 text-white px-6 py-3 rounded-xl text-base font-semibold backdrop-blur-sm border border-green-400 shadow-lg">
+                  📋 Focus on ingredients section
                 </div>
               </div>
 
-              {/* Focus area indicator */}
-              <div className="absolute inset-x-8 inset-y-16 border-2 border-dashed border-white opacity-40 rounded-lg"></div>
+              {/* Enhanced focus area indicator */}
+              <div className="absolute inset-x-12 inset-y-20 border-3 border-dashed border-green-400 opacity-60 rounded-lg shadow-lg">
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-400 text-black px-3 py-1 rounded-full text-xs font-bold">
+                  INGREDIENTS AREA
+                </div>
+              </div>
             </div>
           )}
 
@@ -158,16 +176,17 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
       </div>
 
       {/* Enhanced mobile tips */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mx-2">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mx-2">
         <div className="text-center">
-          <p className="text-sm text-blue-800 font-medium mb-2">
-            📱 <strong>Mobile Tips:</strong>
+          <p className="text-sm text-green-800 font-medium mb-2">
+            📱 <strong>High-Quality Capture Tips:</strong>
           </p>
-          <div className="text-xs text-blue-700 space-y-1">
-            <p>• Hold device steady and ensure good lighting</p>
-            <p>• Focus camera on ingredients section only</p>
-            <p>• Avoid shadows and reflections on the label</p>
-            <p>• Use the switch button to change camera</p>
+          <div className="text-xs text-green-700 space-y-1">
+            <p>• Hold device very steady for 2-3 seconds before capturing</p>
+            <p>• Ensure bright, even lighting without shadows</p>
+            <p>• Fill the green frame with ingredients text only</p>
+            <p>• Avoid glare, reflections, and tilted angles</p>
+            <p>• Text should be sharp and clearly readable</p>
           </div>
         </div>
       </div>
