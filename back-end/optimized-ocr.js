@@ -317,29 +317,26 @@ export async function ultraFastPreprocess(imageBuffer, isMobile = false) {
     const metadata = await sharp(imageBuffer).metadata();
     console.log(`📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
     
-    // Enhanced mobile optimization
+    // High resolution for better OCR
     const maxWidth = isMobile 
-      ? Math.min(metadata.width, 1000)  // Smaller for mobile
-      : metadata.width > 2000 ? 1200 : Math.min(metadata.width, 1200);
+      ? Math.min(metadata.width, 1800)  // Higher for mobile OCR
+      : metadata.width > 3000 ? 2400 : Math.min(metadata.width, 2400);
     
-    const quality = isMobile ? 80 : 85; // Lower quality for mobile to reduce processing time
+    const quality = isMobile ? 90 : 95; // High quality for better OCR
     
     const processed = await sharp(imageBuffer)
       .resize(maxWidth, null, {
         withoutEnlargement: true,
-        kernel: isMobile ? sharp.kernel.cubic : sharp.kernel.lanczos3,
+        kernel: sharp.kernel.lanczos3, // High quality kernel
       })
-      .normalize({
-        lower: 1,
-        upper: 99
-      })
+      // Remove aggressive normalization that can hurt OCR
       .modulate({ 
-        brightness: isMobile ? 1.1 : 1.05, 
-        contrast: isMobile ? 1.2 : 1.15,
-        saturation: 0.9
+        brightness: 1.05, // Slight brightness boost
+        contrast: 1.1,    // Mild contrast enhancement
+        saturation: 1.0   // Keep original colors
       })
       .sharpen({
-        sigma: isMobile ? 0.8 : 1,
+        sigma: 1.0, // Consistent sharpening
         flat: 1,
         jagged: 2
       })

@@ -10,6 +10,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState("environment");
+  const [showGuides, setShowGuides] = useState(true);
 
   // Updated video constraints to use fixed capture size
   const getVideoConstraints = useCallback(() => {
@@ -108,26 +109,20 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
             </div>
           )}
 
-          {/* Enhanced overlay guides */}
-          {isReady && !error && (
+          {/* Simplified overlay guides - only show when needed */}
+          {isReady && !error && showGuides && (
             <div className="absolute inset-0 pointer-events-none z-10">
-              {/* Corner guides */}
-              <div className="absolute top-6 left-6 w-12 h-12 border-l-4 border-t-4 border-green-400 opacity-80 rounded-tl-lg shadow-lg"></div>
-              <div className="absolute top-6 right-6 w-12 h-12 border-r-4 border-t-4 border-green-400 opacity-80 rounded-tr-lg shadow-lg"></div>
-              <div className="absolute bottom-6 left-6 w-12 h-12 border-l-4 border-b-4 border-green-400 opacity-80 rounded-bl-lg shadow-lg"></div>
-              <div className="absolute bottom-6 right-6 w-12 h-12 border-r-4 border-b-4 border-green-400 opacity-80 rounded-br-lg shadow-lg"></div>
-
-              {/* Center guide */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-black bg-opacity-70 text-white px-6 py-3 rounded-xl text-base font-semibold backdrop-blur-sm border border-green-400 shadow-lg">
-                  📋 Focus on ingredients section
+              {/* Simple center guide */}
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+                <div className="bg-black bg-opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium backdrop-blur-sm">
+                  📋 Focus on ingredients
                 </div>
               </div>
 
-              {/* Enhanced focus area indicator */}
-              <div className="absolute inset-x-12 inset-y-20 border-3 border-dashed border-green-400 opacity-60 rounded-lg shadow-lg">
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-400 text-black px-3 py-1 rounded-full text-xs font-bold">
-                  INGREDIENTS AREA
+              {/* Simple focus frame */}
+              <div className="absolute inset-x-8 inset-y-16 border-2 border-dashed border-green-400 opacity-50 rounded-lg">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-400 text-black px-2 py-1 rounded text-xs font-medium">
+                  INGREDIENTS
                 </div>
               </div>
             </div>
@@ -141,6 +136,16 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
                 <p className="text-sm">Loading camera...</p>
               </div>
             </div>
+          )}
+
+          {/* Toggle guides button */}
+          {isReady && !error && (
+            <button
+              onClick={() => setShowGuides(!showGuides)}
+              className="absolute top-4 right-4 bg-black bg-opacity-60 text-white px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm hover:bg-opacity-80 transition-all z-20"
+            >
+              {showGuides ? '👁️ Hide guides' : '📋 Show guides'}
+            </button>
           )}
         </div>
       </div>
@@ -175,18 +180,17 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
         </button>
       </div>
 
-      {/* Enhanced mobile tips */}
+      {/* Simplified tips */}
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mx-2">
         <div className="text-center">
           <p className="text-sm text-green-800 font-medium mb-2">
-            📱 <strong>High-Quality Capture Tips:</strong>
+            📱 <strong>Capture Tips:</strong>
           </p>
           <div className="text-xs text-green-700 space-y-1">
-            <p>• Hold device very steady for 2-3 seconds before capturing</p>
+            <p>• Hold device steady and ensure good lighting</p>
             <p>• Ensure bright, even lighting without shadows</p>
-            <p>• Fill the green frame with ingredients text only</p>
-            <p>• Avoid glare, reflections, and tilted angles</p>
-            <p>• Text should be sharp and clearly readable</p>
+            <p>• Focus on ingredients section only</p>
+            <p>• Avoid glare and ensure text is readable</p>
           </div>
         </div>
       </div>

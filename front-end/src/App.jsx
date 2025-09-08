@@ -212,14 +212,14 @@ function App() {
         return;
       }
 
-      // Get optimal settings for OCR processing
+      // Use high quality settings for OCR
       const settings = deviceCapabilities || detectDeviceCapabilities();
       
-      // Use higher quality settings for webcam captures
+      // Maximum quality for webcam captures
       const ocrSettings = {
         ...settings,
-        quality: Math.max(settings.quality, 0.9), // Minimum 90% quality
-        maxWidth: Math.max(settings.maxWidth, 1600) // Minimum 1600px width
+        quality: 0.98, // Very high quality for webcam
+        maxWidth: Math.max(settings.maxWidth, 2000) // High resolution
       };
       
       const compressedImage = await compressImage(
@@ -261,10 +261,11 @@ function App() {
       try {
         const settings = deviceCapabilities || detectDeviceCapabilities();
         
+        // High quality for uploaded images
         const compressedImage = await compressImage(
           reader.result, 
-          settings.quality, 
-          settings.maxWidth
+          0.95, // High quality
+          Math.max(settings.maxWidth, 2000) // High resolution
         );
         
         setImageSrc(compressedImage);
