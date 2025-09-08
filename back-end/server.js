@@ -316,13 +316,13 @@ app.post("/api/analyze", async (req, res) => {
     console.log(`📊 Image size: ${(imageBuffer.length / 1024).toFixed(1)}KB, buffer length: ${imageBuffer.length}`);
 
     // Validate image size limits
-    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    const maxSizeBytes = 15 * 1024 * 1024; // 15MB for higher quality images
     if (imageBuffer.length > maxSizeBytes) {
       console.error(`❌ Image too large: ${imageBuffer.length} bytes`);
       return res.status(413).json({ 
         error: "Image file too large", 
         code: "IMAGE_TOO_LARGE",
-        maxSize: "10MB"
+        maxSize: "15MB"
       });
     }
 

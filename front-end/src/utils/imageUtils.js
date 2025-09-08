@@ -74,15 +74,8 @@ export const compressImage = (file, quality = 0.8, maxWidth = 1200) => {
           const imageData = ctx.getImageData(0, 0, width, height);
           const data = imageData.data;
           
-          // Light contrast enhancement while preserving colors
-          for (let i = 0; i < data.length; i += 4) {
-            // Slight contrast boost for better text clarity
-            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * 1.1 + 128));     // Red
-            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * 1.1 + 128)); // Green
-            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * 1.1 + 128)); // Blue
-          }
-          
-          ctx.putImageData(imageData, 0, 0);
+          // Skip image processing to preserve original quality
+          // The original image is already drawn on canvas
           
           // Use very high quality for OCR
           const ocrQuality = Math.max(quality, 0.95); // Minimum 95% quality

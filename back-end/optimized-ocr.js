@@ -329,17 +329,7 @@ export async function ultraFastPreprocess(imageBuffer, isMobile = false) {
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3, // High quality kernel
       })
-      // Remove aggressive normalization that can hurt OCR
-      .modulate({ 
-        brightness: 1.05, // Slight brightness boost
-        contrast: 1.1,    // Mild contrast enhancement
-        saturation: 1.0   // Keep original colors
-      })
-      .sharpen({
-        sigma: 1.0, // Consistent sharpening
-        flat: 1,
-        jagged: 2
-      })
+      // Minimal processing to preserve original image quality
       .jpeg({ 
         quality, 
         progressive: false,
