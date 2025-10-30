@@ -19,7 +19,6 @@ Each classification comes with a brief reason, empowering users to make healthie
 ---
 
 ## ✨ Features
-
 - 📤 Upload or 📸 capture food label images
 - 🔍 Extracts ingredients from blurry, printed, or digital labels using Tesseract.js
 - 🧠 Uses Google Gemini AI to analyze ingredient health impact
@@ -28,6 +27,16 @@ Each classification comes with a brief reason, empowering users to make healthie
 - 🔁 Reset and try another label easily
 - 📱 Fully responsive on mobile and desktop
 - ⚙️ Built with clean modular architecture (frontend & backend separate)
+
+---
+
+## 🖼️ Screenshots
+
+### Homepage / Dashboard
+![Dashboard Screenshot](https://drive.google.com/file/d/1aMtfGzuRqjqdfqt7TTjIWJXCrezJziTg/view)
+
+### Upload Page
+![Upload Page Screenshot](https://drive.google.com/file/d/19PEep2T2Du0YChwrSxd5d0eFG-KInxtE/view)
 
 ---
 
@@ -47,19 +56,22 @@ Each classification comes with a brief reason, empowering users to make healthie
 - dotenv for secure environment variable handling
 - body-parser and cors for API support
 
+### 🔹 DevOps & Deployment
+- **Frontend:** Vercel
+- **Backend:** Render
+- **Containerization:** Docker
+
 ---
 
 ## 🌐 Live Demo
-
-- 🔗 Frontend (Vercel): [https://smart-ingredient-analyzer.vercel.app](https://smart-ingredient-analyzer.vercel.app)
-- 🔗 Backend (Render): [https://smart-ingredient-analyzer.onrender.com](https://smart-ingredient-analyzer.onrender.com)
+- 🔗 Frontend (Vercel): https://smart-ingredient-analyzer.vercel.app
+- 🔗 Backend (Render): https://smart-ingredient-analyzer.onrender.com
 
 ---
 
 ## 📦 Installation & Setup
 
 ### 🔧 Prerequisites
-
 - Node.js (v16 or later recommended)
 - A valid [Google Gemini API Key](https://makersuite.google.com/app)
 - Vercel / Render accounts (for deployment if needed)
@@ -67,21 +79,16 @@ Each classification comes with a brief reason, empowering users to make healthie
 ---
 
 ### 🖥️ Frontend Setup (React + Vite)
-
 ```bash
-git clone https://github.com/your-username/smart-ingredient-analyzer.git
+git clone https://github.com/vipinsao/Smart-Ingredient-Analyzer.git
 cd smart-ingredient-analyzer/frontend
 npm install
 ```
-
 Create a `.env` file:
-
 ```
 VITE_API=https://smart-ingredient-analyzer.onrender.com
 ```
-
 Run the development server:
-
 ```bash
 npm run dev
 ```
@@ -89,36 +96,33 @@ npm run dev
 ---
 
 ### 🛠️ Backend Setup (Node.js + Express)
-
 ```bash
 cd ../backend
 npm install
 ```
-
 Create a `.env` file:
-
 ```
 PORT=5000
 GEMINI_API_KEY=your_actual_gemini_api_key
 ```
-
 Run the backend server:
-
 ```bash
 npm start
 ```
 
 ---
 
-## 🤖 Gemini AI Integration
+### 🐳 Docker Support
+- Both frontend and backend include Dockerfiles for easy containerized deployment. You can use `docker compose` to spin up the entire stack locally or in production.
 
+---
+
+## 🤖 Gemini AI Integration
 We use Google Gemini's `generateContent` endpoint to send the extracted ingredient list and receive health analysis in structured JSON format.
 
 ### Example Prompt Sent:
-
 ```txt
 You are a health food expert. Analyze the following list of food ingredients.
-
 Return a JSON array only. Each object should be in this format:
 {
   "ingredient": "<ingredient_name>",
@@ -126,9 +130,7 @@ Return a JSON array only. Each object should be in this format:
   "reason": "<brief explanation>"
 }
 ```
-
 Gemini returns a response like:
-
 ```json
 [
   {
@@ -142,7 +144,6 @@ Gemini returns a response like:
 ---
 
 ## ⚙️ How It Works
-
 1. 📸 Upload or capture image.
 2. 🔍 OCR reads text using Tesseract.js.
 3. ✂️ Custom logic filters only the ingredient section.
@@ -152,17 +153,15 @@ Gemini returns a response like:
 ---
 
 ## 📌 Environment Variables
-
-| Variable           | Description                                | Required |
-|--------------------|--------------------------------------------|----------|
-| `GEMINI_API_KEY`   | Google Gemini API Key                      | ✅       |
-| `PORT`             | Port for backend server                    | Optional |
-| `VITE_API`         | Used in frontend `.env` to connect to backend | ✅    |
+| Variable           | Description                                         | Required |
+|--------------------|-----------------------------------------------------|----------|
+| `GEMINI_API_KEY`   | Google Gemini API Key                               | ✅       |
+| `PORT`             | Port for backend server                             | Optional |
+| `VITE_API`         | Used in frontend `.env` to connect to backend       | ✅       |
 
 ---
 
 ## 📈 Roadmap / Ideas
-
 - 🌍 Multi-language OCR support (Hindi, French, etc.)
 - 🧬 Allergy-specific filtering
 - 🗂 Save & download past analysis reports
@@ -172,20 +171,16 @@ Gemini returns a response like:
 ---
 
 ## 🙋‍♂️ About Me
-
 Hi, I'm **Vipin Chandra Sao**, an aspiring full-stack software engineer passionate about solving real-world problems with modern web technologies. I created this project as part of my personal learning and to help others make better food choices using AI.
 
 If you'd like to connect or collaborate:
-
 - GitHub: [@vipinsao](https://github.com/vipinsao)
 - Twitter: [@vipinsao](https://twitter.com/vipinsao)
 
 ---
 
 ## 🤝 Contributing
-
 Contributions, ideas, and feedback are always welcome!
-
 ```bash
 # 1. Fork the repo
 # 2. Create your branch (git checkout -b feature/feature-name)
@@ -198,4 +193,4 @@ Contributions, ideas, and feedback are always welcome!
 
 > If you found this project helpful or inspiring, please ⭐ it and share it with your network. Thank you!
 
-_Last updated: 2025-06-18_
+_Last updated: 2025-10-30_
