@@ -33,10 +33,10 @@ Each classification comes with a brief reason, empowering users to make healthie
 ## 🖼️ Screenshots
 
 ### Homepage / Dashboard
-![Dashboard Screenshot](https://drive.google.com/file/d/1aMtfGzuRqjqdfqt7TTjIWJXCrezJziTg/view)
+![Dashboard Screenshot](/dashboard.png)
 
 ### Upload Page
-![Upload Page Screenshot](https://drive.google.com/file/d/19PEep2T2Du0YChwrSxd5d0eFG-KInxtE/view)
+![Upload Page Screenshot](/home.png)
 
 ---
 
