@@ -175,7 +175,7 @@ Hi, I'm **Vipin Chandra Sao**, an aspiring full-stack software engineer passiona
 
 If you'd like to connect or collaborate:
 - GitHub: [@vipinsao](https://github.com/vipinsao)
-- Twitter: [@vipinsao](https://twitter.com/vipinsao)
+- Twitter: [@vipinSao1](https://twitter.com/vipinSao1)
 
 ---
 
