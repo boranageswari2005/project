@@ -36,7 +36,7 @@ Each classification comes with a brief reason, empowering users to make healthie
 ![Dashboard Screenshot](/dashboard.png)
 
 ### Upload Page
-![Upload Page Screenshot](/home.png)
+![Upload Page Screenshot](/upload.png)
 
 ---
 
