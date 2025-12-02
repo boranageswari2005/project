@@ -155,7 +155,7 @@ function validateIngredientText(text) {
   // Special boost for Indian food additives (INS codes)
   const insMatches = text.match(/ins\d+/gi) || [];
   score += insMatches.length * 5; // Higher score for INS codes
-  
+
   // Boost for percentage indicators
   const percentageMatches = text.match(/\d+\.?\d*%/g) || [];
   score += percentageMatches.length * 3;
@@ -208,19 +208,23 @@ function validateIngredientText(text) {
 export async function performGeminiVisionOCR(imageBuffer) {
   try {
     const startTime = Date.now();
-    
+
     // Validate input
     if (!imageBuffer || imageBuffer.length === 0) {
       throw new Error("Invalid image buffer provided");
     }
-    
+
     const base64Image = imageBuffer.toString("base64");
-    
+
     if (!base64Image) {
       throw new Error("Failed to convert image to base64");
     }
-    
-    console.log(`🔍 Gemini Vision: Processing ${(base64Image.length / 1024).toFixed(1)}KB image`);
+
+    console.log(
+      `🔍 Gemini Vision: Processing ${(base64Image.length / 1024).toFixed(
+        1
+      )}KB image`
+    );
 
     if (!process.env.GEMINI_API_KEY) {
       throw new Error("Gemini API key not configured");
@@ -257,18 +261,23 @@ export async function performGeminiVisionOCR(imageBuffer) {
     );
 
     const processingTime = Date.now() - startTime;
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ Gemini API HTTP error: ${response.status} - ${errorText}`);
+      console.error(
+        `❌ Gemini API HTTP error: ${response.status} - ${errorText}`
+      );
       throw new Error(`Gemini API HTTP error: ${response.status}`);
     }
-    
+
     const result = await response.json();
 
     if (result.error) {
       console.error("❌ Gemini API error:", result.error);
-      throw new Error(result.error.message || `Gemini Vision API error: ${result.error.code || 'unknown'}`);
+      throw new Error(
+        result.error.message ||
+          `Gemini Vision API error: ${result.error.code || "unknown"}`
+      );
     }
 
     const extractedText =
@@ -280,7 +289,11 @@ export async function performGeminiVisionOCR(imageBuffer) {
 
     // Check if Gemini detected it's not a food label
     const cleanText = extractedText.trim().toUpperCase();
-    if (cleanText === "NO_INGREDIENTS_FOUND" || cleanText === "NOT_FOOD_LABEL" || cleanText.includes("NO INGREDIENTS")) {
+    if (
+      cleanText === "NO_INGREDIENTS_FOUND" ||
+      cleanText === "NOT_FOOD_LABEL" ||
+      cleanText.includes("NO INGREDIENTS")
+    ) {
       throw new Error(
         "Image does not appear to contain ingredient information"
       );
@@ -290,11 +303,15 @@ export async function performGeminiVisionOCR(imageBuffer) {
     const validation = validateIngredientText(extractedText);
 
     if (!validation.isValid) {
-      console.log(`⚠️ Validation failed: ${validation.reason}, score: ${validation.score}`);
+      console.log(
+        `⚠️ Validation failed: ${validation.reason}, score: ${validation.score}`
+      );
       throw new Error(`Invalid ingredient image: ${validation.reason}`);
     }
 
-    console.log(`✅ Gemini Vision OCR successful: ${extractedText.length} characters extracted`);
+    console.log(
+      `✅ Gemini Vision OCR successful: ${extractedText.length} characters extracted`
+    );
 
     return {
       text: extractedText.trim(),
@@ -315,29 +332,38 @@ export async function ultraFastPreprocess(imageBuffer, isMobile = false) {
   try {
     // Get image info first
     const metadata = await sharp(imageBuffer).metadata();
-    console.log(`📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
-    
+    console.log(
+      `📊 Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`
+    );
+
     // High resolution for better OCR
-    const maxWidth = isMobile 
-      ? Math.min(metadata.width, 1800)  // Higher for mobile OCR
-      : metadata.width > 3000 ? 2400 : Math.min(metadata.width, 2400);
-    
+    const maxWidth = isMobile
+      ? Math.min(metadata.width, 1800) // Higher for mobile OCR
+      : metadata.width > 3000
+      ? 2400
+      : Math.min(metadata.width, 2400);
+
     const quality = isMobile ? 90 : 95; // High quality for better OCR
-    
+
     const processed = await sharp(imageBuffer)
       .resize(maxWidth, null, {
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3, // High quality kernel
       })
       // Minimal processing to preserve original image quality
-      .jpeg({ 
-        quality, 
+      .jpeg({
+        quality,
         progressive: false,
-        mozjpeg: true
+        mozjpeg: true,
       })
       .toBuffer();
 
-    console.log(`✅ Processed: ${(processed.length / 1024).toFixed(1)}KB (${((1 - processed.length / imageBuffer.length) * 100).toFixed(1)}% reduction)`);
+    console.log(
+      `✅ Processed: ${(processed.length / 1024).toFixed(1)}KB (${(
+        (1 - processed.length / imageBuffer.length) *
+        100
+      ).toFixed(1)}% reduction)`
+    );
     return processed;
   } catch (error) {
     console.error("[Ultra Fast Preprocessing Error]", error);

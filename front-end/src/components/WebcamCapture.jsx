@@ -22,7 +22,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
       frameRate: { ideal: 15, max: 30 }, // Lower framerate for better quality
       focusMode: { ideal: "continuous" },
       exposureMode: { ideal: "continuous" },
-      whiteBalanceMode: { ideal: "continuous" }
+      whiteBalanceMode: { ideal: "continuous" },
     };
   }, [facingMode]);
 
@@ -44,7 +44,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
       const imageSrc = webcamRef.current?.getScreenshot({
         width: CAPTURE_WIDTH,
         height: CAPTURE_HEIGHT,
-        quality: CAPTURE_QUALITY
+        quality: CAPTURE_QUALITY,
       });
       if (imageSrc) {
         onCapture(imageSrc);
@@ -73,24 +73,24 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
     <div className="space-y-4 sm:space-y-6 max-w-full">
       {/* Enhanced camera container */}
       <div className="bg-gray-900 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden relative max-w-4xl mx-auto">
-        <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
+        <div className="relative bg-black" style={{ aspectRatio: "16/9" }}>
           {!error ? (
             <Webcam
               ref={webcamRef}
               audio={false}
               screenshotFormat="image/jpeg"
-              screenshotQuality={CAPTURE_QUALITY}
-              width="100%"
-              height="100%"
+              screenshotQuality={1}
+              width={CAPTURE_WIDTH}
+              height={CAPTURE_HEIGHT}
               videoConstraints={getVideoConstraints()}
               onUserMedia={handleUserMedia}
               onUserMediaError={handleUserMediaError}
               className="absolute inset-0 w-full h-full object-cover rounded-xl"
               mirrored={facingMode === "user"}
               style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
               }}
             />
           ) : (
@@ -144,7 +144,7 @@ const WebcamCapture = ({ webcamRef, onCapture, onBack }) => {
               onClick={() => setShowGuides(!showGuides)}
               className="absolute top-4 right-4 bg-black bg-opacity-60 text-white px-3 py-2 rounded-lg text-xs font-medium backdrop-blur-sm hover:bg-opacity-80 transition-all z-20"
             >
-              {showGuides ? '👁️ Hide guides' : '📋 Show guides'}
+              {showGuides ? "👁️ Hide guides" : "📋 Show guides"}
             </button>
           )}
         </div>
