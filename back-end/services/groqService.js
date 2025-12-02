@@ -85,9 +85,6 @@ Expected JSON format:
 
       const data = await response.json();
 
-      // Debug: raw response
-      console.log("📨 Groq raw response:", JSON.stringify(data, null, 2));
-
       if (data.error) {
         const err = new Error(data.error.message || "Groq API error");
         err.code = "GROQ_API_ERROR";
